@@ -3,7 +3,7 @@ import pandas as pd
 import pandas_datareader as pdr
 import datetime
 import os
-
+from pandas_datareader._utils import RemoteDataError
 
 '''
 
