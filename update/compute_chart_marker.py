@@ -177,12 +177,13 @@ def update_chart_data():
  		 					OutputData = get_classification_output(rawData)
 
  		 					#find index with NAN
- 		 					indsInput = InputData.loc[InputData.notnull().any(axis=1)].index.tolist()
- 		 					indsOutput = OutputData.loc[OutputData.notnull().any(axis=1)].index.tolist()
+ 		 					indsInput = InputData.loc[InputData.notnull().all(axis=1)].index.tolist()
+ 		 					indsOutput = OutputData.loc[OutputData.notnull().all(axis=1)].index.tolist()
  		 					
  		 					#find intersection betwen both index lists
 		 					inds_final = list(set(indsInput) & set(indsOutput))
 
+		 					
 		 					#write final data
  		 					InputData.loc[inds_final].to_csv(path_chart+_index+'/'+_label+'_input.csv')
  		 					OutputData.loc[inds_final].to_csv(path_chart+_index+'/'+_label+'_output.csv')
