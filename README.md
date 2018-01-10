@@ -1,7 +1,7 @@
 # project_one
 stock prediction
 
-needed packages:
+required packages besides obvious ones:
 
 - stockstats https://pypi.python.org/pypi/stockstats
 
