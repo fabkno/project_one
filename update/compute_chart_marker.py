@@ -69,7 +69,7 @@ def return_relative_bollinger_bands(rawData,window_size=20,k=2):
 
 	
 
-def get_chartdata(rawData,ListOfChartFeatures = ['GD200','GD100','GD50','GD38','BB_20_2','RSI_25','RSI_14','RSI_9','RSI_7','ADX']):
+def get_chartdata(rawData,ListOfChartFeatures = ['GD200','GD100','GD50','GD38','BB_20_2','RSI_25','RSI_14','RSI_9','RSI_7','ADX','MACD']):
 
 	'''
 
@@ -129,6 +129,9 @@ def get_chartdata(rawData,ListOfChartFeatures = ['GD200','GD100','GD50','GD38','
 			output[_feature] = tmp.get('rsi_'+str(_window)).values
 		elif _feature[0:3] == 'ADX':
 			output[_feature] = tmp.get('adx').values
+
+		elif _feature[0:4] == 'MACD':
+			output[_feature] = tmp.get('macd').values			
 
 	#GD = ListOfChartFeatures[np.argmax([int(_feature[2:]) for _feature in ListOfChartFeatures])]
 	
