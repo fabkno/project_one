@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import os
 import sys
+import stockstats
 
 '''
 
@@ -10,6 +11,10 @@ Compute standard chartmakers, ROLMEAN: 38,50,100,200, Bollinger Bands
 
 '''
 
+
+#class Updater():
+
+#	def __init__():
 
 def return_relative_roll_mean(raw_data,window_size):
 
@@ -62,7 +67,9 @@ def return_relative_bollinger_bands(rawData,window_size=20,k=2):
 
 	return np.array(lower),np.array(upper)
 
-def get_chartdata(rawData,ListOfChartFeatures = ['GD200','GD100','GD50','GD38','BB_20_2']):
+	
+
+def get_chartdata(rawData,ListOfChartFeatures = ['GD200','GD100','GD50','GD38','BB_20_2','RSI_14']):
 
 	'''
 
@@ -94,6 +101,11 @@ def get_chartdata(rawData,ListOfChartFeatures = ['GD200','GD100','GD50','GD38','
 	output['Date'] = pd.Series(rawData['Date'],index = rawData.index)
 	output['Close'] = pd.Series(rawData['Close'],index=rawData.index)
 
+	###change eventually by own implementation
+
+	tmp = stockstats.StockDataFrame.retype(rawData.copy())
+
+
 	for _feature in ListOfChartFeatures:
 
 		if _feature[0:2] == 'GD':	
@@ -111,6 +123,12 @@ def get_chartdata(rawData,ListOfChartFeatures = ['GD200','GD100','GD50','GD38','
 
 			output['Lower_'+_feature] = pd.Series(lower,index = rawData.index)
 			output['Upper_'+_feature] = pd.Series(upper,index = rawData.index)
+
+		elif _feature[0:3] == 'RSI':
+			_window = np.int(_feature[4:])
+			output[_feature] = tmp.get('rsi_'+str(_window)).values
+
+
 	#GD = ListOfChartFeatures[np.argmax([int(_feature[2:]) for _feature in ListOfChartFeatures])]
 	
 	#nonZeroInds = output.loc[output[GD].notnull()].index.tolist()
@@ -246,4 +264,4 @@ def update_chart_data():
 
  			print "########## Index ", _index, " successfully updated #########\n\n"
 
-#update_chart_data()
+update_chart_data()
