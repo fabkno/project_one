@@ -24,8 +24,45 @@ def return_relative_roll_mean(raw_data,window_size):
 	return (raw_data['Close'] - rolling_mean)/rolling_mean
 
 
+def return_relative_bollinger_bands(rawData,window_size=20,k=2):
 
-def get_chartdata(rawData,ListOfChartFeatures = ['GD200','GD100','GD50','GD38']):
+	'''
+	compute relative bollinger bands
+
+	Parameters
+	--------------
+	rawData : pandas DataFrame
+
+	window_size : int (default 20) window for rolling averages/stds
+
+	k : int (default 2) , number of STD used for band with 
+
+	Returns
+	--------------
+	upper : np.ndarray relative distance to upper band
+	
+	lower : np.ndarray relative distance to lower band
+
+	Example:
+	-------------
+	To Do ...
+
+	'''
+
+	min_ = np.int(window_size * 0.9)
+
+	rolling_mean = pd.Series.rolling(rawData['Close'],window=window_size,min_periods=min_).mean().values
+	rolling_std =  pd.Series.rolling(rawData['Close'],window=window_size,min_periods=min_).std().values
+
+	upper = rolling_mean + k*rolling_std
+	upper = (rawData['Close'] - upper)/upper
+	
+	lower = rolling_mean - k*rolling_std
+	lower = (rawData['Close'] -lower)/lower
+
+	return np.array(lower),np.array(upper)
+
+def get_chartdata(rawData,ListOfChartFeatures = ['GD200','GD100','GD50','GD38','BB_20_2']):
 
 	'''
 
@@ -33,7 +70,7 @@ def get_chartdata(rawData,ListOfChartFeatures = ['GD200','GD100','GD50','GD38'])
 	-------------
 	path_raw : string, path to raw stock data
 
-	ListOfChartFeatures : list of strings (default ['GD200','GD100','GD50','GD38']) correspond to rolling averages
+	ListOfChartFeatures : list of strings (default ['GD200','GD100','GD50','GD38','BB_20_2']) correspond to rolling averages and bolling bands (tau = 20 and k=2)
 
 
 	Returns
@@ -63,6 +100,17 @@ def get_chartdata(rawData,ListOfChartFeatures = ['GD200','GD100','GD50','GD38'])
 
 			output[_feature] = pd.Series(return_relative_roll_mean(rawData,np.int(_feature[2:])),index=rawData.index)
 
+		elif _feature[0:2] == 'BB':
+			_k = np.int(_feature[-1])
+			_window = np.int(_feature[3:[i for i,x in enumerate(_feature) if x=='_'][1]])
+
+			lower,upper = return_relative_bollinger_bands(rawData,window_size=_window,k=_k)
+
+			if len(lower) != len(output):
+				raise ValueError('Caution length of BB bands not equal length of dates')
+
+			output['Lower_'+_feature] = pd.Series(lower,index = rawData.index)
+			output['Upper_'+_feature] = pd.Series(upper,index = rawData.index)
 	#GD = ListOfChartFeatures[np.argmax([int(_feature[2:]) for _feature in ListOfChartFeatures])]
 	
 	#nonZeroInds = output.loc[output[GD].notnull()].index.tolist()
@@ -198,4 +246,4 @@ def update_chart_data():
 
  			print "########## Index ", _index, " successfully updated #########\n\n"
 
-update_chart_data()
+#update_chart_data()
