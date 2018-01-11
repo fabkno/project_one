@@ -151,7 +151,7 @@ class Updater(object):
 		-------------
 		path_raw : string, path to raw stock data
 
-		ListOfChartFeatures : list of strings (default ['GD200','GD100','GD50','GD38','BB_20_2']) correspond to rolling averages and bolling bands (tau = 20 and k=2)
+		ListOfChartFeatures : list of strings (default None)
 
 
 		Returns
