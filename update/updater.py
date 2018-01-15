@@ -24,7 +24,7 @@ class Updater(object):
 							 "ADX" = average directional index
 							 "MACD" = moving average convergence/divergence ###check number of days
 		'''
-		self.ListOfChartFeatures = ['GD200','GD100','GD50','GD38','BB_20_2','RSI_14','ADX','MACD']
+		self.ListOfChartFeatures = ['GD200','GD100','GD50','GD38','BB_20_2','RSI_14','ADX','MACD','MAX20','MAX65','MAX130','MAX260','MIN20','MIN65','MIN130','MIN260']
 
 		'''
 		PrizeThresholds : threshold to ategorize relative (in percent) stock evolution within N days
@@ -207,7 +207,22 @@ class Updater(object):
 				output[_feature] = tmp.get('adx').values
 
 			elif _feature[0:4] == 'MACD':
-				output[_feature] = tmp.get('macd').values			
+				output[_feature] = tmp.get('macd').values
+
+			elif _feature[0:3] == 'MAX':
+				_window = np.int(_feature[3:])
+			
+				min_ = np.int(_window * 0.9)
+				rolling_max = pd.Series.rolling(rawData['Close'],window=_window,min_periods=min_).max().tolist()
+				output[_feature] = (rawData['Close'] - rolling_max)/rolling_max
+
+			elif _feature[0:3] == 'MIN':
+				_window = np.int(_feature[3:])
+
+				min_ = np.int(_window * 0.9)
+				rolling_min = pd.Series.rolling(rawData['Close'],window=_window,min_periods=min_).min().tolist()
+				output[_feature] = (rawData['Close'] - rolling_min)/rolling_min
+
 
 		return output	
 		
