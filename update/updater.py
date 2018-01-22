@@ -23,6 +23,8 @@ class Updater(object):
 							 "RSI_14" = relative strength index (last 14 days)
 							 "ADX" = average directional index
 							 "MACD" = moving average convergence/divergence ###check number of days
+							 "MAXxx" = moving maximum of xx days
+							 "MINxx" = moving minimum of xx days
 		'''
 		self.ListOfChartFeatures = ['GD200','GD100','GD50','GD38','BB_20_2','RSI_14','ADX','MACD','MAX20','MAX65','MAX130','MAX260','MIN20','MIN65','MIN130','MIN260']
 
