@@ -4,7 +4,7 @@ import os
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import cross_val_score
 from sklearn.model_selection import train_test_split,ShuffleSplit,GridSearchCV
-
+import datetime
 
 class ScanModel(object):
 
@@ -53,7 +53,7 @@ class ScanModel(object):
 	def StockGridModeling(self,scaled=True):
 
 		if os.path.isfile(self.PathData+'predictions/predictions_scan.csv') == False:
-		 					prediction_out = pd.DataFrame(columns=['Labels','ModelType','Parameters','ParameterValues','Score','Input','ListOfFeatures'])
+		 					prediction_out = pd.DataFrame(columns=['Labels','ModelType','Parameters','ParameterValues','Score','Input','ListOfFeatures','Date'])
 							prediction_out.to_csv(self.PathData+'predictions/predictions_scan.csv')
 
 		prediction_out = pd.read_csv(self.PathData+'predictions/predictions_scan.csv',index_col='Unnamed: 0')
@@ -68,26 +68,17 @@ class ScanModel(object):
 					if os.path.isfile(IndexPath+'ListOfCompanies.csv'):					
 						labels = pd.read_csv(IndexPath+'ListOfCompanies.csv')['Label']
 
-
-						
-						#else:
-
-						#pd.DataFrame(columns=['labels','ModelType'])
-
 						if len(labels) >1:					
 
 							for _label in labels:
-								
 								
 								if (os.path.isfile(IndexPathChart+_label+'_input.csv') == True) and (os.path.isfile(IndexPathChart+_label+'_output.csv') == True):
 									
 									InputData = pd.read_csv(IndexPathChart+'/'+_label+'_input.csv',index_col='Unnamed: 0') 							
 									OutputData= pd.read_csv(IndexPathChart+'/'+_label+'_output.csv',index_col='Unnamed: 0') 
-
-
 									#check if both files contain same date entries
 									if np.any((InputData['Date'] == OutputData['Date']).values == False) == True:
-										raise ValueError('Dates of InputData and OutputData to not coincide')
+										raise ValueError('Dates of InputData and OutputData do not coincide')
 
 									#double check that  "NaN" values are left over
 									if np.any(InputData.values == np.nan) == True:
@@ -108,28 +99,27 @@ class ScanModel(object):
 									if scaled == True:
 										Xfull -= np.mean(Xfull,axis=0)
 										Xfull /= np.std(Xfull,axis=0)
-
 									Yfull = np.argmax(OutputData.loc[:,OutputData.columns.isin(['Date']) == False].values,axis=1)
-
 									# set random_state np.random.randint(1,1e6)
 									#Xtrain,Xval,Ytrain,Yval = train_test_split(Xfull,Yfull,self.test_size,random_state=1)
 									cv = ShuffleSplit(n_splits=self.cv_splits,test_size = self.test_size,random_state = True)
 
 									if self.ModelType == 'RFC':
-
 										_out = self.gridSearchRFC(Xfull,Yfull,split_sets=cv)
 
 										tmp= prediction_out.loc[(prediction_out['Labels'] == _label) &
 										(prediction_out['ModelType'] == self.ModelType) &
 										(prediction_out['Input'] == 'Single') &
-										(prediction_out['ListOfFeatures'] == self.ListOfFeatures)
+										(prediction_out['ListOfFeatures'] == self.ListOfFeatures) &
+										(prediction_out['Date'] == datetime.datetime.today().date())
 										]
 
 										if len(tmp) == 0:
 											prediction_out = prediction_out.append({'Labels':_label,
 												'ModelType':self.ModelType,'Parameters':str(_out[1].keys()),
 												'ParameterValues':str(_out[1].values()),'Score':_out[0],
-												'Input':'Single','ListOfFeatures':self.ListOfFeatures},ignore_index=True)
+												'Input':'Single','ListOfFeatures':self.ListOfFeatures,
+												'Date':datetime.datetime.today().date()},ignore_index=True)
 										else:
 											
 											prediction_out.loc[tmp.index.tolist(),['Parameters','ParameterValues','Score']] = [str(_out[1].keys()),str(_out[1].values()),_out[0]]
