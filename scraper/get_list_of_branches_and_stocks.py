@@ -76,4 +76,20 @@ for _num in range(len(branchen)):
     companies = get_companies_for_branch(companies,branchen['Name'][_num],branchen['URL'][_num])
 
 
-companies.to_pickle('companies_by_branches.p')
+######################## find companies assigned to more than one branch and merge branches #######################
+
+companies_new = companies.copy()
+
+doubleCompanies = companies_new.loc[companies_new['Name'].duplicated()]['Name'].values
+
+for i in range(len(doubleCompanies)):
+    ListOfBranches = companies.loc[companies['Name'] == doubleCompanies[i]]['Branche'].values
+    companies_new.loc[companies_new['Name'] == doubleCompanies[i],'Branche'] = [ListOfBranches]
+
+########## delete duplicated entries ###############
+companies_new.drop_duplicates('Name',inplace=True)
+companies_new.reset_index(drop=True,inplace=True)
+
+print 'final number of companies is ', len(companies_new)
+
+companies_new.to_pickle('companies_by_branches.p')
