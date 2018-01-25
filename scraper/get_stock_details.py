@@ -5,7 +5,7 @@ import numpy as np
 import datetime
 import os
 import re
-
+import shutil
 
 
 class UpdateStockDetails(object):
@@ -20,7 +20,7 @@ class UpdateStockDetails(object):
 		self.today = datetime.datetime.today().date()
 
 		if Path is None:
-			self.Path = os.getcwd()
+			self.Path = os.getcwd()+'/'
 		else:
 			self.Path = Path
 		
@@ -49,7 +49,10 @@ class UpdateStockDetails(object):
 		To do
 		'''
 
-		for N in range(401,1000,20):
+		shutil.copy(self.Path+'ListOfCompanies.p',self.Path+'ListOfCompanies_old.p')
+
+
+		for N in range(24,28):
 			print N,"\n"
 			details = self._find_stock_details_from_url(self.ListOfCompanies.loc[N]['URL'])
 
@@ -60,7 +63,6 @@ class UpdateStockDetails(object):
 
 			_urls = details['PeerGroupFinanzenNetURLs']
 			_names = details['PeerGroupFinanzenNetName']
-
 
 			if _names is not None:
 
@@ -88,17 +90,21 @@ class UpdateStockDetails(object):
 			else:
 				_online=None
 
-			
-			
-
 			self.ListOfCompanies.at[N,'PeerGroupFinanzenNetName'] = _names
 			self.ListOfCompanies.at[N,'PeerGroupFinanzenNetURLs'] = _urls
 			self.ListOfCompanies.at[N,'PeerGroupFinanzenNetOnline'] = _online
 
 			print self.ListOfCompanies.loc[N][['Name','Country','SymbolFinanzen.net','PeerGroupFinanzenNetName','PeerGroupFinanzenNetOnline']]
 
-		#companies.to_pickle('ListofCompanies.p')
+		
+			if np.mod(N,100) == 0:
+				self.ListOfCompanies.index.name = self.today
+				self.ListOfCompanies.to_pickle(self.Path +'ListOfCompanies.p')
+				print "saved"
 
+		self.ListOfCompanies.index.name = self.today
+		self.ListOfCompanies.to_pickle(self.Path +'ListOfCompanies.p')
+		print "ListOfCompanies is saved"
 
 	def _find_stock_details_from_url(self,url):
 
@@ -143,24 +149,24 @@ class UpdateStockDetails(object):
 		#find country of company and all stock indices that list stock
 		allIndices = list(soup.findAll("div", {"class": "box"}))
 
-		# prepare string to find peer group information
-		__tmp = url.rsplit('/', 1)[-1]
+		# # prepare string to find peer group information
+		# __tmp = url.rsplit('/', 1)[-1]
 
-		__tmp2 = " ".join(re.split('_|-',__tmp))
+		# __tmp2 = " ".join(re.split('_|-',__tmp))
 
-		#capitalize first word
-		__Listtmp2 = __tmp2.split()
-		__Listtmp2[0] = __Listtmp2[0].upper()
+		# #capitalize first word
+		# __Listtmp2 = __tmp2.split()
+		# __Listtmp2[0] = __Listtmp2[0].upper()
 
-		string4PeerGroup = "Peer Group " + __tmp2
-		string4PeerGroup2 = "Peer Group " + ' '.join(__Listtmp2)
+		# string4PeerGroup = "Peer Group " + __tmp2
+		# string4PeerGroup2 = "Peer Group " + ' '.join(__Listtmp2)
 
-		string4PeerGroup= string4PeerGroup.encode('latin1')
-		string4PeerGroup2= string4PeerGroup2.encode('latin1')
+		# string4PeerGroup= string4PeerGroup.encode('latin1')
+		# string4PeerGroup2= string4PeerGroup2.encode('latin1')
 
-
-		PeerList = None
-		PeerURLList = None
+	
+		PeerList = []
+		PeerURLList = []
 		for name in allIndices:
 
 			if "Zur Aktie" in str(name):#Zum Unternehmen       
@@ -184,11 +190,14 @@ class UpdateStockDetails(object):
 				zumUnternehmen = name.get_text()
 				Land = zumUnternehmen[self._find_str(zumUnternehmen,'Land')-1:self._find_str(zumUnternehmen,'Branchen')-9]
 
+			elif "Peer Group " in str(name):
+			#elif string4PeerGroup in str(name) or string4PeerGroup2 in str(name):
 
-			elif string4PeerGroup in str(name) or string4PeerGroup2 in str(name):
-				zurPeerGroup = name.get_text()
-				PeerList,PeerURLList = self._get_peer_company_names(zurPeerGroup,string4PeerGroup)
+				_arefs= list(name.findAll('a',href=True))
 
+				PeerList,PeerURLList = self._get_peer_company_names(_arefs,PeerList,PeerURLList)
+				
+		
 		# print out single found features
 		if  1 == 0:
 			print "WKN " ,wkn
@@ -198,13 +207,49 @@ class UpdateStockDetails(object):
 			print 'ListedIndizes', ListedIndizes
 			print 'PeerGroupFinanzenNetName', PeerList
 
+		if len(PeerList) ==0:
+				PeerList = None
+		if len(PeerURLList) == 0:
+				PeerURLList = None
 		return {'WKN':wkn,'ISIN':isin,'SymbolFinanzen.net':symbol,'Country':Land,'ListedIndizes':ListedIndizes,'PeerGroupFinanzenNetName':PeerList,'PeerGroupFinanzenNetURLs':PeerURLList}
 
 
+	def _get_peer_company_names(self,ListOfStrings,PeerList,PeerURLList):
+
+		'''
+		helper function that finds from ListOfStrings the finanzen.net url and stock name
+		Parameters
+		-------------
+		'''
+
+	
+		for _link in ListOfStrings:
+			if '"/aktien/' in str(_link):
+				
+				PeerList.append(_link.get_text())
+				PeerURLList.append('http://www.finanzen.net'+_link.get('href'))
 
 
+		
+		return PeerList,PeerURLList
 
-	def _get_peer_company_names(self,webstring,start_name):
+
+# test = "Peer Group "
+
+# for name in allIndices:
+#     if test in str(name):
+
+#         tmp= list(name.findAll('a',href=True))
+        
+#         for k,link in enumerate(tmp):
+#             if '"/aktien/' in str(link):
+            
+#                 print link.get_text(), k
+           
+#                 print 'http://www.finanzen.net'+link.get('href')
+
+
+	def _get_peer_company_names2(self,webstring,start_name):
 
 		'''
 		helper function that finds from website string the finanzen.net url
