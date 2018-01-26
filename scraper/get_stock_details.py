@@ -5,7 +5,7 @@ import numpy as np
 import datetime
 import os
 import re
-import shutil
+import shutil,sys
 
 
 class UpdateStockDetails(object):
@@ -24,8 +24,8 @@ class UpdateStockDetails(object):
 		else:
 			self.Path = Path
 		
-		if os.path.isfile(self.Path + 'ListOfCompanies.p') == True:
-			self.ListOfCompanies = pd.read_pickle(self.Path + 'ListOfCompanies.p')
+		if os.path.isfile(self.Path + 'ListOfCompaniesFromIndices.p') == True:
+			self.ListOfCompanies = pd.read_pickle(self.Path + 'ListOfCompaniesFromIndices.p')
 
 			#add new columns
 			for category in ['ISIN','WKN','SymbolFinanzen.net','Country','ListedIndizes','PeerGroupFinanzenNetName','PeerGroupFinanzenNetURLs','PeerGroupFinanzenNetOnline']:
@@ -41,7 +41,103 @@ class UpdateStockDetails(object):
 			self.CompaniesByBranches = pd.read_pickle(self.Path + 'CompaniesByBranches.p')
 
 
+	
+	def retrieve_company_list_from_indices(self):
+		'''
+		retrieves preliminary list of stocks include in list of indices
+
+		default is given by DAX,MDAX,TECDAX,SDAX, EUROSTOXX, NASDAQ 100
+
+		'''
+		def _get_names_n_urls(html_object):
+			'''
+			finds names and urls of given html_object from finanzen.net
+
+			Parameters
+			------------
+
+			html_object 
+
+			Returns
+			------------
+			names : list of strings company names included in given index
+
+			urls : list of strings correspond finanzen.net urls
+
+			'''
+			allLinks = list(html_object.findAll("table", {"class": "table"}))
+			names = None
+			urls = None
+			for link in allLinks:
+				if '"/aktien' in str(link) and 'NameISINLetzterVortagTiefHoch' in link.get_text():
+					urls= ['http://www.finanzen.net'+a.get('href') for a in list(link.findAll('a')) if '"/aktien' in str(a)]
+					names =[a.get_text() for a in list(link.findAll('a')) if '"/aktien' in str(a)]
+			return names,urls
+
+		#check if company file exists, if yes make copy and add date of copy
+		if os.path.isfile(self.Path + 'ListOfCompaniesFromIndices.p'):
+			shutil.copy(self.Path + 'ListOfCompaniesFromIndices.p',self.Path + 'ListOfCompaniesFromIndices_'+str(self.today)+'.p')
+
+		#initialize new data frame
+		ListOfCompaniesFromIndices = pd.DataFrame(columns=['Name','URL'])
+
+		ListOfIndexUrls = ['https://www.finanzen.net/index/DAX/Werte',
+				'https://www.finanzen.net/index/MDAX/Werte',
+				'https://www.finanzen.net/index/SDAX/Werte',
+				'https://www.finanzen.net/index/Dow_Jones/Werte',
+				'https://www.finanzen.net/index/Nasdaq_100/Werte',
+				'https://www.finanzen.net/index/Euro_Stoxx_50/Werte',
+				'https://www.finanzen.net/index/TECDAX/Werte']
+		#loop through all urls
+		for IndexUrl in ListOfIndexUrls:
+			
+			if self._URL_online(IndexUrl) == False:
+				print IndexUrl 
+				raise ValueError('URL does not exist')
+
+			page = requests.get(IndexUrl)
+			soup = BeautifulSoup(page.content, 'html.parser')
+
+			names,urls = _get_names_n_urls(soup)
+	
+			FirstCompany = names[0]
+
+			if names is not None:
 		
+				if np.mod(len(names),2) == 0:
+
+					for i in range(0,len(names),2):
+						ListOfCompaniesFromIndices = ListOfCompaniesFromIndices.append({'Name':names[i],'URL':urls[i]},ignore_index=True)
+				else:
+					"check results for index", IndexUrl
+			
+			else:
+				print IndexUrl
+
+			#check if index website has multiple pages of companies
+			for nextPage in range(2,100):
+				_page = requests.get(IndexUrl+'@intpagenr_'+str(nextPage))
+				_soup = BeautifulSoup(_page.content,'html.parser')
+				names,urls = _get_names_n_urls(_soup)
+				
+				if names is not None:
+					
+					if np.mod(len(names),2) == 0:
+						for i in range(0,len(names),2):
+							ListOfCompaniesFromIndices = ListOfCompaniesFromIndices.append({'Name':names[i],'URL':urls[i]},ignore_index=True)
+					else:
+						"check results for index", IndexUrl
+				
+					if names[0] == FirstCompany:
+						break
+
+				if names is None:
+					
+					break
+
+		ListOfCompaniesFromIndices.to_pickle(self.Path + 'ListOfCompaniesFromIndices.p')			
+
+
 
 	def add_stock_details(self):
 
@@ -49,10 +145,11 @@ class UpdateStockDetails(object):
 		fix bug country "letzte dividende"
 		'''
 
-		shutil.copy(self.Path+'ListOfCompanies.p',self.Path+'ListOfCompanies_old.p')
+		#shutil.copy(self.Path+'ListOfCompaniesFromIndices.p',self.Path+'ListOfCompaniesFromIndices_old.p')
 
 		N=0
-		while N <len(self.ListOfCompanies) -1:
+		
+		while N <len(self.ListOfCompanies):
 		#while N <16:
 			print N,"\n"
 			details = self._find_stock_details_from_url(self.ListOfCompanies.loc[N]['URL'])
@@ -143,18 +240,21 @@ class UpdateStockDetails(object):
 		identifier= allIdentifiers[0].get_text().split()[-1].split(',')
 
 		
-		if identifier[0][1:5].isdigit() == True:
-			wkn = identifier[0][1:]
+		
+		#if identifier[0][1:5].isdigit() == True:
+		wkn = identifier[0][1:]
 
+			
 
-			if len(identifier) == 2:
-				isin = identifier[1][:-1]
-			elif len(identifier) == 3:
-				isin = identifier[2][:-1]
-				symbol = identifier[1]
-		else:
-			isin = identifier[0][1:-1]
+		if len(identifier) == 2:
+			isin = identifier[1][:-1]
+		elif len(identifier) == 3:
+			isin = identifier[2][:-1]			
+			symbol = identifier[1]
+		#else:
+			#isin = identifier[0][1:-1]
 
+	
 		#find country of company and all stock indices that list stock
 		allIndices = list(soup.findAll("div", {"class": "box"}))
 
@@ -197,8 +297,26 @@ class UpdateStockDetails(object):
 
 			elif "Zum Unternehmen" in str(name):
 				zumUnternehmen = name.get_text()
-				Land = zumUnternehmen[self._find_str(zumUnternehmen,'Land')-1:self._find_str(zumUnternehmen,'Branchen')-9]
+				
+				_end_pos = self._find_str(zumUnternehmen,'Branchen')
+				
+				#if string "Branchen" not found look for string "Letzte" instead
+				if _end_pos == -1:
+					_end_pos = self._find_str(zumUnternehmen,'Letzte')
 
+					# if string "Letzte" not found "LandXXX" is last sequence in string zumUnternehmen
+					if _end_pos ==-1:
+						_end_pos = None
+					else:
+						_end_pos -= 7
+					
+						
+
+				else:
+					_end_pos -= 9
+
+				#Land = zumUnternehmen[self._find_str(zumUnternehmen,'Land')-1:self._find_str(zumUnternehmen,'Branchen')-9]
+				Land = zumUnternehmen[self._find_str(zumUnternehmen,'Land')-1:_end_pos]
 			elif "Peer Group " in str(name):
 			#elif string4PeerGroup in str(name) or string4PeerGroup2 in str(name):
 
@@ -208,7 +326,7 @@ class UpdateStockDetails(object):
 				
 		
 		# print out single found features
-		if  1 == 1:
+		if  1 == 0:
 			print "WKN " ,wkn
 			print "ISIN" , isin
 			print 'SymbolFinanzen.net ', symbol
