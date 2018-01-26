@@ -46,13 +46,14 @@ class UpdateStockDetails(object):
 	def add_stock_details(self):
 
 		'''
-		To do
+		fix bug country "letzte dividende"
 		'''
 
 		shutil.copy(self.Path+'ListOfCompanies.p',self.Path+'ListOfCompanies_old.p')
 
-
-		for N in range(24,28):
+		N=0
+		while N <len(self.ListOfCompanies) -1:
+		#while N <16:
 			print N,"\n"
 			details = self._find_stock_details_from_url(self.ListOfCompanies.loc[N]['URL'])
 
@@ -101,7 +102,7 @@ class UpdateStockDetails(object):
 				self.ListOfCompanies.index.name = self.today
 				self.ListOfCompanies.to_pickle(self.Path +'ListOfCompanies.p')
 				print "saved"
-
+			N+=1
 		self.ListOfCompanies.index.name = self.today
 		self.ListOfCompanies.to_pickle(self.Path +'ListOfCompanies.p')
 		print "ListOfCompanies is saved"
@@ -133,18 +134,26 @@ class UpdateStockDetails(object):
 
 		#find WKN,ISIN,SYMBOL if exists
 		symbol = None
+		wkn = None
+		isin = None
+
 		soup = BeautifulSoup(page.content, 'html.parser')
 
 		allIdentifiers= list(soup.findAll('title'))
 		identifier= allIdentifiers[0].get_text().split()[-1].split(',')
 
-		wkn = identifier[0][1:]
+		
+		if identifier[0][1:5].isdigit() == True:
+			wkn = identifier[0][1:]
 
-		if len(identifier) == 2:
-			isin = identifier[1][:-1]
-		elif len(identifier) == 3:
-			isin = identifier[2][:-1]
-			symbol = identifier[1]
+
+			if len(identifier) == 2:
+				isin = identifier[1][:-1]
+			elif len(identifier) == 3:
+				isin = identifier[2][:-1]
+				symbol = identifier[1]
+		else:
+			isin = identifier[0][1:-1]
 
 		#find country of company and all stock indices that list stock
 		allIndices = list(soup.findAll("div", {"class": "box"}))
@@ -199,7 +208,7 @@ class UpdateStockDetails(object):
 				
 		
 		# print out single found features
-		if  1 == 0:
+		if  1 == 1:
 			print "WKN " ,wkn
 			print "ISIN" , isin
 			print 'SymbolFinanzen.net ', symbol
