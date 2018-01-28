@@ -2,9 +2,16 @@ import numpy as np
 import pandas as pd
 import pandas_datareader as pdr
 import datetime
-import os
+import os,shutil,sys
 from pandas_datareader._utils import RemoteDataError
 import stockstats
+
+	# 		#find index with NAN
+	# 		indsInput = InputData.loc[InputData.notnull().all(axis=1)].index.tolist()
+	# 		indsOutput = OutputData.loc[OutputData.notnull().all(axis=1)].index.tolist()
+			
+	# 		#find intersection betwen both index lists
+	# 		inds_final = list(set(indsInput) & set(indsOutput))
 
 class Updater(object):
 	"""
@@ -12,12 +19,18 @@ class Updater(object):
 	Add description
 
 	"""
-	def __init__(self,PathData=None):
+	def __init__(self,FileNameListOfCompanies=None,PathData=None):
 
-		self.ListOfCountries = ['Germany','US']
-		self.ListOfIndices = {'Germany':['DAX','MDAX','SDAX'],'US':['DOW']}
-		
+
 		'''
+		Parameters
+		----------------
+		PathData : string (default None) give manually working directory 
+
+		FileNameListOfCompanies : string (default None) if not full list of companies is considered to update give filename.csv of indented list
+						  the list has to be stored in "../data/company_lists/"
+
+
 		ListOfChartFeatures: "GDXX" = moving average and number of days
 							 "BB_20_2" = bolling bands (tau = 20 and k=2)
 							 "RSI_14" = relative strength index (last 14 days)
@@ -35,14 +48,25 @@ class Updater(object):
 		self.PrizeThresholds=[-5,-2.5,0,2.5,5]
 		self.duration = 10 #duration for which to compute classification 
 
-		self.UpdateTimeEnd = datetime.datetime.today()
-		self.UpdateTimeStart = datetime.datetime(2009,1,1)
-
 		if PathData is None:
 			self.PathData = os.path.dirname(os.getcwd())+'/data/'
 		else:
 			self.PathData = PathData
 		
+		#check for input ListOfCompanies
+		if FileNameListOfCompanies is None:
+			self.FileNameListOfCompanies = 'full_list.csv'
+
+		else:
+			if os.path.isfile(self.PathData+'/company_lists/'+FileNameListOfCompanies) is True:
+				self.FileNameListOfCompanies = FileNameListOfCompanies
+			else:
+				raise ValueError('List: '+FileNameListOfCompanies + ' does not exists in' +self.PathData + '/company_lists/')
+
+		
+		self.ListOfCompanies = pd.read_csv(self.PathData+'/company_lists/'+self.FileNameListOfCompanies,index_col='Unnamed: 0')
+		
+
 
 	def update_all(self):
 
@@ -50,117 +74,124 @@ class Updater(object):
 		self.update_chart_markers_and_output()
 
 
-	def update_stock_prizes(self,ListOfIndices=None):
+	def update_stock_prizes(self):
 
 		"""
-		Update stock prizes using yahoo finance 
+		Update stock prizes given in ListOfCompanies using yahoo finance 
 
-		Paramters
-		--------------
-
-		ListOfIndices : dictionary (default None), dict keys are countries and its values are list of stock indices.
-						 If None provided use the full country list defined in the class constructor
+		If there is data to update the old file is backuped to ..._backup.p so the backup is good for one business day
 
 		"""
+		self.UpdateTimeEnd = datetime.datetime.today().date()
+		print self.UpdateTimeEnd
+		for stocklabel in self.ListOfCompanies['Yahoo Ticker']:
 
-		if ListOfIndices is None:
-			ListOfIndices = self.ListOfIndices
-
-		for _country in ListOfIndices.keys():
-
-			for _StockIndex in ListOfIndices[_country]:
-				IndexPath = self.PathData+'raw/'+_country+'/'+_StockIndex+'/'
-				if os.path.isfile(IndexPath+'ListOfCompanies.csv'):
-					
-					labels = pd.read_csv(IndexPath+'ListOfCompanies.csv')['Label']
-					
-					if len(labels) >1:
-						for _label in labels:
-							
-							try:
-								stock_prize = pdr.get_data_yahoo(_label,self.UpdateTimeStart,self.UpdateTimeEnd)
-								stock_prize.to_csv(IndexPath +_label+'.csv')
-								
-								print "Stock ",_label, " updated"
-
-							except RemoteDataError:
-								print "No information for ticker ", _label
-								continue
-
-					else:	print "Searched index does not have any entries"
+			if os.path.isfile(self.PathData + '/raw/stocks/'+stocklabel+'.p'):
+				StockValue = pd.read_pickle(self.PathData + '/raw/stocks/'+stocklabel+'.p')
 				
-				else:	print _country, ": Index : ",_StockIndex, " not found"
+				self.UpdateTimeStart = StockValue.tail(1)['Date'].tolist()[0].date()				
 
-				print "\n########## Index ", _StockIndex, " successfully updated #########\n\n"
+				#if stock has been updated at the same date already
+				if self.UpdateTimeStart == self.UpdateTimeEnd:
+					continue
+				try:
+					
+					stock_prize = pdr.get_data_yahoo(stocklabel,self.UpdateTimeStart,self.UpdateTimeEnd)
+					stock_prize.reset_index(inplace=True)
+					stock_prize.dropna(inplace=True)
 
-	def update_chart_markers_and_output(self,ListOfIndices=None):
+					stock_prize = stock_prize.loc[stock_prize['Date']>self.UpdateTimeStart]
+					
+					if len(stock_prize) == 0:
+						continue
 
+					StockValue = pd.concat([StockValue, stock_prize], ignore_index=True)
+
+					shutil.copy(self.PathData+'/raw/stocks/'+stocklabel+'.p',self.PathData+'/raw/stocks/'+stocklabel+'_backup.p')
+					
+					StockValue.reset_index(inplace=True)
+					StockValue.to_pickle(self.PathData+'/raw/stocks/'+stocklabel+'.p')
+					print "Stock ",stocklabel, " updated"
+
+				except RemoteDataError:
+					print "No information for ticker ", stocklabel
+					continue
+
+			else:
+				#if file is not available yet get data starting from 01/01/2000
+				self.UpdateTimeStart = datetime.datetime(2000,1,1).date()
+				try:
+					stock_prize = pdr.get_data_yahoo(stocklabel,self.UpdateTimeStart,self.UpdateTimeEnd)
+					stock_prize.reset_index(inplace=True)
+					stock_prize.to_pickle(self.PathData+'/raw/stocks/'+stocklabel+'.p')
+					print "Stock ",stocklabel, " updated"
+
+				except RemoteDataError:
+					print "No information for ticker ", stocklabel
+					continue
+
+
+	def update_chart_markers(self):
 		'''	
-		update chart indicators and classification output from rawdata
-
+		update chart indicators from raw chart data
 		
+		'''		
+		print "Start updating chart markers"
+		print "--------------------------------\n"
+		for stocklabel in self.ListOfCompanies['Yahoo Ticker']:
+			
+			#check if raw stock data exists
+			if os.path.isfile(self.PathData + '/raw/stocks/'+stocklabel+'.p'):
+				rawData = pd.read_pickle(self.PathData + '/raw/stocks/'+stocklabel+'.p')	
+				ChartData = self.get_chartdata(rawData)
+				ChartData.dropna(inplace=True)
+				ChartData.to_pickle(self.PathData+'/chart/stocks/'+stocklabel+'.p')
+
+				print "chart values for ", stocklabel, " written"
+			else: 
+				print "raw stock data for stock ",stocklabel, " does not exist"
+				print "try running update_stock_prize() first"
+		print "\nFinished updating chart markers\n\n"
+	
+	def update_stock_classification(self):
+
 		'''
+		update stock classification 
 
-		if ListOfIndices is None:
-			ListOfIndices = self.ListOfIndices
+		'''
+		print "Start updating stock classification"
+		print "--------------------------------------\n"
+		for stocklabel in self.ListOfCompanies['Yahoo Ticker']:
+			
+			#check if raw stock data exists
+			if os.path.isfile(self.PathData + '/raw/stocks/'+stocklabel+'.p'):
+				rawData = pd.read_pickle(self.PathData + '/raw/stocks/'+stocklabel+'.p')	
+				classification = self.get_classification_output(rawData)
+				classification.dropna(inplace=True)
 
+				classification.to_pickle(self.PathData+'/classification/stocks/'+stocklabel+'.p')
 
-		for _country in ListOfIndices.keys():
+				print "chart values for ", stocklabel, " written"
+			else: 
+				print "raw stock data for stock ",stocklabel, " does not exist"
+				print "try running update_stock_prize() first"
 
-			for _StockIndex in ListOfIndices[_country]:
-				
-				IndexPathRaw = self.PathData+'raw/'+_country+'/'+_StockIndex+'/'
-				IndexPathChart = self.PathData+'chart/'+_country+'/'+_StockIndex+'/'
-
-				if os.path.exists(IndexPathChart) is False:
-					os.makedirs(IndexPathChart)
-
-				
-				if os.path.isfile(IndexPathRaw+'ListOfCompanies.csv'):
-					
-					labels = pd.read_csv(IndexPathRaw+'ListOfCompanies.csv')['Label']
-					
-					if len(labels) >1:
-						for _label in labels:
-							if os.path.isfile(IndexPathRaw+'/'+_label+'.csv'):
-								rawData = pd.read_csv(IndexPathRaw+'/'+_label+'.csv')
-
-	 		 					InputData = self.get_chartdata(rawData)
-	 		 					OutputData = self.get_classification_output(rawData)
-
-	 		 					#find index with NAN
-	 		 					indsInput = InputData.loc[InputData.notnull().all(axis=1)].index.tolist()
-	 		 					indsOutput = OutputData.loc[OutputData.notnull().all(axis=1)].index.tolist()
-	 		 					
-	 		 					#find intersection betwen both index lists
-			 					inds_final = list(set(indsInput) & set(indsOutput))
-
-			 					
-			 					#write final data
-	 		 					InputData.loc[inds_final].to_csv(IndexPathChart+_label+'_input.csv')
-	 		 					OutputData.loc[inds_final].to_csv(IndexPathChart+_label+'_output.csv')
-
-	 		 					print "chart values for ", _label, " written"
-
-
+		print "\nFinished updating stock classification\n\n"
 
 
 	def get_chartdata(self,rawData,ListOfChartFeatures = None):
 
 		'''
-
 		Parameters
 		-------------
 		path_raw : string, path to raw stock data
 
 		ListOfChartFeatures : list of strings (default None)
 
-
 		Returns
 		-------------
 		
 		output : pandas DataFrame 	
-
 
 		'''
 
@@ -171,6 +202,10 @@ class Updater(object):
 		if isinstance(rawData,basestring) == True:
 			if os.path.isfile(rawData) == True:
 				rawData = pd.read_csv(rawData)
+
+				#check if rawData contains any duplicated dates
+				if rawData['Date'].duplicated().any() == True:
+					raise ValueError('Critical!!!! "rawData" contains duplicated Dates. Classification output is most probably inaccurate')
 			else:
 				raise ValueError('Input path to raw data does not exist')
 
@@ -231,6 +266,8 @@ class Updater(object):
 	def get_classification_output(self,rawData,PrizeThresholds=None,duration = None):
 		
 		'''
+		To do make sure that the time difference are indeed 10 BT
+
 		Compute binary output for stock classification 
 
 		Parameters
@@ -282,7 +319,7 @@ class Updater(object):
 
 		#create classifier columns from PrizeThresholds
 
-		tmp = np.array((rawData['Close'].values[0:-duration] - rawData['Close'].values[duration:])/rawData['Close'].values[0:-duration])*100.
+		tmp = np.array((rawData['Close'].values[duration:]- rawData['Close'].values[0:-duration])/rawData['Close'].values[0:-duration])*100.
 
 		
 		classifier['<'+str(PrizeThresholds[0])] = pd.Series(np.nan,index=classifier.index)
