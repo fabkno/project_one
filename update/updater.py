@@ -13,7 +13,7 @@ import stockstats
 	# 		#find intersection betwen both index lists
 	# 		inds_final = list(set(indsInput) & set(indsOutput))
 
-class Updater(object):
+class StockUpdater(object):
 	"""
 
 	Add description
@@ -70,9 +70,20 @@ class Updater(object):
 
 	def update_all(self):
 
-		self.update_stock_prizes()
-		self.update_chart_markers_and_output()
+		#check if directories exists otherwise create them
 
+		if os.path.exists(self.PathData+'/raw/stocks/') is False:
+			os.makedirs(self.PathData+'/raw/stocks/')
+
+		if os.path.exists(self.PathData+'/chart/stocks/') is False:
+			os.makedirs(self.PathData+'/chart/stocks/')
+
+		if os.path.exists(self.PathData+'/classification/stocks/') is False:
+			os.makedirs(self.PathData+'/classification/stocks/')
+
+		self.update_stock_prizes()
+		self.update_chart_markers()
+		self.update_stock_classification()
 
 	def update_stock_prizes(self):
 
@@ -82,8 +93,11 @@ class Updater(object):
 		If there is data to update the old file is backuped to ..._backup.p so the backup is good for one business day
 
 		"""
+		print "Start updating stock prizes"
+		print "--------------------------------------\n"
+
 		self.UpdateTimeEnd = datetime.datetime.today().date()
-		print self.UpdateTimeEnd
+		print "Today is ",self.UpdateTimeEnd
 		for stocklabel in self.ListOfCompanies['Yahoo Ticker']:
 
 			if os.path.isfile(self.PathData + '/raw/stocks/'+stocklabel+'.p'):
@@ -129,6 +143,8 @@ class Updater(object):
 				except RemoteDataError:
 					print "No information for ticker ", stocklabel
 					continue
+
+		print "\nFinished updating stock prizes\n\n"
 
 
 	def update_chart_markers(self):
