@@ -75,7 +75,7 @@ class ScanModel(object):
 		prediction_out = pd.read_pickle(self.PathData+'predictions/predictions_scan.p')
 
 		
-		for stocklabel in self.ListOfCompanies['Yahoo Ticker'][0:3]:
+		for stocklabel in self.ListOfCompanies['Yahoo Ticker']:
 								
 			if (os.path.isfile(self.PathData+'chart/stocks/'+stocklabel+'.p') == False) or (os.path.isfile(self.PathData +'classification/stocks/'+stocklabel+'.p') == False):
 				print "Data for stock: ",stocklabel, " does not exist"
@@ -164,8 +164,8 @@ class ScanModel(object):
 			#else:
 			#	"either input or Output file for stock ", _label, " in Index ",_StockIndex, " is missing"
 
-		prediction_out.to_pickle(self.PathData+'predictions/predictions_scan.p')
-		print prediction_out
+				prediction_out.to_pickle(self.PathData+'predictions/predictions_scan.p')
+				#print prediction_out
 
 	def _find_common_notnull_dates(self,A,B):
 		'''
@@ -192,7 +192,6 @@ class ScanModel(object):
 
 		commonDates = list(set(DatesA) & set(DatesB))
 		commonDates.sort()
-
 		return commonDates
 
 	def _find_mask(self,df,ListOfObjects,ListOfColumnNames):
