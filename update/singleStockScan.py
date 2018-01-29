@@ -105,8 +105,9 @@ class ScanModel(object):
 				check for feature in featurelist
 				'''
 				if self.ListOfFeatures is 'default':
-					InputFeatures =[_feature for _feature in ChartData.keys() if _feature != 'Date']
-					
+					InputFeatures =[_feature for _feature in ChartData.keys() if _feature not in ['Date','Close']]
+					print InputFeatures
+					sys.exit()
 				else:
 					raise ValueError('To do: implemente feature selection')
 				
