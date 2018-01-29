@@ -6,6 +6,131 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import cross_val_score
 from sklearn.model_selection import train_test_split,ShuffleSplit,GridSearchCV
 import datetime,sys
+import util
+
+
+class ModelPrediction(object):
+
+	def __init__(self,FileNameListOfCompanies=None,PathData=None):
+
+		if PathData is None:
+				self.PathData = os.path.dirname(os.getcwd())+'/data/'
+
+		else:
+			self.PathData = PathData
+
+		if FileNameListOfCompanies is None:
+			self.FileNameListOfCompanies ='full_list.csv'
+		
+		else:
+			if os.path.isfile(self.PathData+'company_lists/'+FileNameListOfCompanies) is True:
+				self.FileNameListOfCompanies = FileNameListOfCompanies
+			else:
+				raise ValueError('List: '+FileNameListOfCompanies + ' does not exists in' +self.PathData + 'company_lists/')
+
+		self.ListOfCompanies = pd.read_csv(self.PathData+'company_lists/'+self.FileNameListOfCompanies,index_col='Unnamed: 0')
+
+		if os.path.exists(self.PathData + 'predictions/stocks/') is False:
+			os.makedirs(self.PathData + 'predictions/stocks/')
+
+		if os.path.isfile(self.PathData+'predictions/predictions_scan.p') is True:
+			self.ListOfPredictions = pd.read_pickle(self.PathData+'predictions/predictions_scan.p')
+
+		else:
+			self.ListOfPredictions = None
+
+	def SingleRFC(self,InputData,ClassificationData,ParameterSet,ListOfFeatures,EarliestDate=None,n_estimators=200):
+		'''
+		single random forest classification model for given parameter set
+
+		Parameters
+		-------------
+		InpuData : pandas DataFrame with input data, e.g. chart indicators, etc.
+
+		ClassificationData : pandas DataFrame with stock classification
+
+		ParameterSet : dictionary contains hyperparameters for RFC
+
+		EarliestDate : datetime object (default = None) determines earlist date after which data is used for model
+
+		n_estimator : int (default = 200), number of final trees in RFC
+
+		Returns
+		-------------
+
+		RFC : model object which can used to predict future state
+
+		timestamp : datetime object, date of last trading day of trainings data
+
+		'''
+	
+		if EarliestDate is None:
+			EarliestDate = datetime.datetime(2010,1,1)
+
+		
+		#Prepare InputData and OutputData
+		InputData = InputData.loc[:,InputData.columns.isin(ListOfFeatures+['Date']) == True]
+		
+		_common_dates = util.find_common_notnull_dates(InputData,ClassificationData)
+	
+		InputData = InputData.loc[(InputData['Date'].isin(_common_dates)) & (InputData['Date'] > EarliestDate)]
+		Input = InputData.loc[:,InputData.columns.isin(['Date']) == False].values
+	
+
+		ClassificationData = ClassificationData.loc[(ClassificationData['Date'].isin(_common_dates)) & (InputData['Date'] > EarliestDate)]
+		Output = np.argmax(ClassificationData.loc[:,ClassificationData.columns.isin(['Date']) == False].values,axis=1)
+
+		if len(Input) != len(Output):
+			raise ValueError('Length of input data does not match lenght of output data')
+
+		#double check that  "NaN" values are left over
+		if np.any(Input == np.nan) == True:
+			raise ValueError('InputData contains "NaN" entries')	
+		if np.any(Output== np.nan) == True:
+			raise ValueError('OutputData contains "NaN" entries')	
+
+		RFC = RandomForestClassifier(n_estimators=n_estimators,**ParameterSet)
+
+		RFC.fit(Input,Output)
+
+		return RFC,InputData.tail(1)['Date'].tolist()[0].date()
+
+	def read_modeling_parameters(self,tickerSymbol,ModelType='RFC'):
+		'''
+		reads from predictions.csv that highest score parameter set
+
+		Parameters
+		------------
+		tickerSymbol : string gives yahoo ticker symbol for stock
+
+		ModelType : string modeltype to seach in ListOfPredictions
+
+		Returns
+		------------
+		modelParameters : dictionary contains the classification model parameters
+
+		ListOfFeatures : List of strings with used features
+
+		StartingDate : datetime object gives the date to first use the input data
+
+		'''
+		if self.ListOfPredictions is None:
+			raise ValueError('No list of predictions provided in '+self.PathData+'predictions/predictions_scan.p')
+
+		tmp =self.ListOfPredictions.loc[(self.ListOfPredictions['Labels'] == tickerSymbol) & (self.ListOfPredictions['ModelType'] == ModelType)][['BestParameters','BestParameterValues','StartingDate','ListOfFeatures']]
+
+		if len(tmp) == 0:
+			raise ValueError('No matching ticker found for given modeltype')
+		else:
+			BestParameters,BestParameterValues,StartingDate,ListOfFeatures = tmp.values[0]
+
+			modelParamters = {}
+			for k in range(len(BestParameters)):
+				modelParameters =  modelParamters.update({BestParameters[k]:BestParameterValues[k]})
+
+		return modelParamters,ListOfFeatures,StartingDate
+
+
 
 class ScanModel(object):
 
@@ -85,7 +210,7 @@ class ScanModel(object):
 				ChartData = pd.read_pickle(self.PathData+'chart/stocks/'+stocklabel+'.p') 							
 				ClassificationData= pd.read_pickle(self.PathData +'classification/stocks/'+stocklabel+'.p') 
 
-				common_dates =self._find_common_notnull_dates(ChartData,ClassificationData)
+				common_dates =util.find_common_notnull_dates(ChartData,ClassificationData)
 
 				#get rid of all non common rows in both data sets
 				ChartData = ChartData.loc[(ChartData['Date'].isin(common_dates)) & (ChartData['Date']>self.EarliestDate)]
@@ -106,8 +231,7 @@ class ScanModel(object):
 				'''
 				if self.ListOfFeatures is 'default':
 					InputFeatures =[_feature for _feature in ChartData.keys() if _feature not in ['Date','Close']]
-					print InputFeatures
-					sys.exit()
+
 				else:
 					raise ValueError('To do: implemente feature selection')
 				
@@ -132,7 +256,7 @@ class ScanModel(object):
 					#print [self._find_index(prediction_out,n,'S')]
 					#search if the same gridsearch has been performed earlier
 
-					mask = self._find_mask(prediction_out,
+					mask = util.find_mask(prediction_out,
 						[stocklabel,self.ModelType,'Single',self.ParamGrid,InputFeatures,self.EarliestDate],
 						['Labels','ModelType','Input','SearchedParameters','ListOfFeatures','StartingDate'])
 
@@ -168,56 +292,5 @@ class ScanModel(object):
 				prediction_out.to_pickle(self.PathData+'predictions/predictions_scan.p')
 				#print prediction_out
 
-	def _find_common_notnull_dates(self,A,B):
-		'''
-		Returns list common Dates of both dataframes that do not belong to any nan entries
 
-		Parameters
-		-----------------
-		A : pandas DataFrame
 
-		B : pandas DataFrame
-
-		Returns
-		-----------------
-		ListOfDates : list of datetimes
-
-		Example
-		----------------
-		To Do.
-
-		'''
-		#find Dates of nonnull entries
-		DatesA= A.loc[A.notnull().all(axis=1)]['Date'].tolist()
-		DatesB = B.loc[B.notnull().all(axis=1)]['Date'].tolist()
-
-		commonDates = list(set(DatesA) & set(DatesB))
-		commonDates.sort()
-		return commonDates
-
-	def _find_mask(self,df,ListOfObjects,ListOfColumnNames):
-
-		'''
-		To description
-
-		'''
-
-		if len(ListOfObjects) != len(ListOfColumnNames):
-			raise ValueError('Caution both number of objects does not match number of ListOfColumnNames')
-		
-		if len(df) == 0:
-			return []
-
-		mask = np.zeros(len(df),dtype=bool) 
-
-		for n in range(len(df)):
-			
-			row_True = np.zeros(len(ListOfColumnNames))
-			
-			for k in range(len(ListOfObjects)):
-				row_True[k] = df.loc[n][ListOfColumnNames[k]] == ListOfObjects[k]			
-			
-			mask[n] = np.all(row_True == True)
-				
-
-		return mask
