@@ -58,28 +58,30 @@ class StockUpdater(object):
 			self.FileNameListOfCompanies = 'full_list.csv'
 
 		else:
-			if os.path.isfile(self.PathData+'/company_lists/'+FileNameListOfCompanies) is True:
+			if os.path.isfile(self.PathData+'company_lists/'+FileNameListOfCompanies) is True:
 				self.FileNameListOfCompanies = FileNameListOfCompanies
 			else:
-				raise ValueError('List: '+FileNameListOfCompanies + ' does not exists in' +self.PathData + '/company_lists/')
+				raise ValueError('List: '+FileNameListOfCompanies + ' does not exists in' +self.PathData + 'company_lists/')
 
 		
-		self.ListOfCompanies = pd.read_csv(self.PathData+'/company_lists/'+self.FileNameListOfCompanies,index_col='Unnamed: 0')
+		self.ListOfCompanies = pd.read_csv(self.PathData+'company_lists/'+self.FileNameListOfCompanies,index_col='Unnamed: 0')
 		
+		#check if directories exists otherwise create them
+		if os.path.exists(self.PathData+'raw/stocks/') is False:
+			os.makedirs(self.PathData+'raw/stocks/')
+
+		if os.path.exists(self.PathData+'raw/stocks/backup/') is False:
+			os.makedirs(self.PathData+'raw/stocks/backup/')
+
+		if os.path.exists(self.PathData+'chart/stocks/') is False:
+			os.makedirs(self.PathData+'chart/stocks/')
+
+		if os.path.exists(self.PathData+'classification/stocks/') is False:
+			os.makedirs(self.PathData+'classification/stocks/')
 
 
 	def update_all(self):
 
-		#check if directories exists otherwise create them
-
-		if os.path.exists(self.PathData+'/raw/stocks/') is False:
-			os.makedirs(self.PathData+'/raw/stocks/')
-
-		if os.path.exists(self.PathData+'/chart/stocks/') is False:
-			os.makedirs(self.PathData+'/chart/stocks/')
-
-		if os.path.exists(self.PathData+'/classification/stocks/') is False:
-			os.makedirs(self.PathData+'/classification/stocks/')
 
 		self.update_stock_prizes()
 		self.update_chart_markers()
@@ -100,8 +102,8 @@ class StockUpdater(object):
 		print "Today is ",self.UpdateTimeEnd
 		for stocklabel in self.ListOfCompanies['Yahoo Ticker']:
 
-			if os.path.isfile(self.PathData + '/raw/stocks/'+stocklabel+'.p'):
-				StockValue = pd.read_pickle(self.PathData + '/raw/stocks/'+stocklabel+'.p')
+			if os.path.isfile(self.PathData + 'raw/stocks/'+stocklabel+'.p'):
+				StockValue = pd.read_pickle(self.PathData + 'raw/stocks/'+stocklabel+'.p')
 				
 				self.UpdateTimeStart = StockValue.tail(1)['Date'].tolist()[0].date()				
 
@@ -111,9 +113,11 @@ class StockUpdater(object):
 				try:
 					
 					stock_prize = pdr.get_data_yahoo(stocklabel,self.UpdateTimeStart,self.UpdateTimeEnd)
-					stock_prize.reset_index(inplace=True)
 					stock_prize.dropna(inplace=True)
+					stock_prize.drop(index=stock_prize.loc[stock_prize['Volume'] == 0.0].index.tolist(),inplace=True)
+					stock_prize.reset_index(inplace=True)
 
+					
 					stock_prize = stock_prize.loc[stock_prize['Date']>self.UpdateTimeStart]
 					
 					if len(stock_prize) == 0:
@@ -121,10 +125,11 @@ class StockUpdater(object):
 
 					StockValue = pd.concat([StockValue, stock_prize], ignore_index=True)
 
-					shutil.copy(self.PathData+'/raw/stocks/'+stocklabel+'.p',self.PathData+'/raw/stocks/'+stocklabel+'_backup.p')
+					shutil.copy(self.PathData+'raw/stocks/'+stocklabel+'.p',self.PathData+'raw/stocks/backup/'+stocklabel+'.p')
 					
+					print "number of rows", len(StockValue), " for label", stocklabel
 					StockValue.reset_index(inplace=True)
-					StockValue.to_pickle(self.PathData+'/raw/stocks/'+stocklabel+'.p')
+					StockValue.to_pickle(self.PathData+'raw/stocks/'+stocklabel+'.p')
 					print "Stock ",stocklabel, " updated"
 
 				except RemoteDataError:
@@ -136,8 +141,10 @@ class StockUpdater(object):
 				self.UpdateTimeStart = datetime.datetime(2000,1,1).date()
 				try:
 					stock_prize = pdr.get_data_yahoo(stocklabel,self.UpdateTimeStart,self.UpdateTimeEnd)
+					stock_prize.drop(index=stock_prize.loc[stock_prize['Volume'] == 0.0].index.tolist(),inplace=True)
+					stock_prize.dropna(inplace=True)
 					stock_prize.reset_index(inplace=True)
-					stock_prize.to_pickle(self.PathData+'/raw/stocks/'+stocklabel+'.p')
+					stock_prize.to_pickle(self.PathData+'raw/stocks/'+stocklabel+'.p')
 					print "Stock ",stocklabel, " updated"
 
 				except RemoteDataError:
@@ -150,18 +157,19 @@ class StockUpdater(object):
 	def update_chart_markers(self):
 		'''	
 		update chart indicators from raw chart data
-		
+		st
 		'''		
 		print "Start updating chart markers"
 		print "--------------------------------\n"
 		for stocklabel in self.ListOfCompanies['Yahoo Ticker']:
 			
 			#check if raw stock data exists
-			if os.path.isfile(self.PathData + '/raw/stocks/'+stocklabel+'.p'):
-				rawData = pd.read_pickle(self.PathData + '/raw/stocks/'+stocklabel+'.p')	
+			if os.path.isfile(self.PathData + 'raw/stocks/'+stocklabel+'.p'):
+				rawData = pd.read_pickle(self.PathData + 'raw/stocks/'+stocklabel+'.p')	
 				ChartData = self.get_chartdata(rawData)
 				ChartData.dropna(inplace=True)
-				ChartData.to_pickle(self.PathData+'/chart/stocks/'+stocklabel+'.p')
+
+				ChartData.to_pickle(self.PathData+'chart/stocks/'+stocklabel+'.p')
 
 				print "chart values for ", stocklabel, " written"
 			else: 
@@ -180,12 +188,12 @@ class StockUpdater(object):
 		for stocklabel in self.ListOfCompanies['Yahoo Ticker']:
 			
 			#check if raw stock data exists
-			if os.path.isfile(self.PathData + '/raw/stocks/'+stocklabel+'.p'):
-				rawData = pd.read_pickle(self.PathData + '/raw/stocks/'+stocklabel+'.p')	
+			if os.path.isfile(self.PathData + 'raw/stocks/'+stocklabel+'.p'):
+				rawData = pd.read_pickle(self.PathData + 'raw/stocks/'+stocklabel+'.p')	
 				classification = self.get_classification_output(rawData)
 				classification.dropna(inplace=True)
 
-				classification.to_pickle(self.PathData+'/classification/stocks/'+stocklabel+'.p')
+				classification.to_pickle(self.PathData+'classification/stocks/'+stocklabel+'.p')
 
 				print "chart values for ", stocklabel, " written"
 			else: 
@@ -229,14 +237,16 @@ class StockUpdater(object):
 		output = pd.DataFrame()
 		output['Date'] = pd.Series(rawData['Date'],index = rawData.index)
 		output['Close'] = pd.Series(rawData['Close'],index=rawData.index)
+		output['Volume'] = pd.Series(rawData['Volume'],index=rawData.index)
+
 
 		###change eventually by own implementation
 
-		tmp = stockstats.StockDataFrame.retype(rawData.copy())
+		tmp = stockstats.StockDataFrame.retype(rawData.copy(deep=True))
 
 
 		for _feature in ListOfChartFeatures:
-
+			
 			if _feature[0:2] == 'GD':	
 
 				output[_feature] = pd.Series(self._return_relative_roll_mean(rawData,np.int(_feature[2:])),index=rawData.index)
@@ -254,13 +264,15 @@ class StockUpdater(object):
 				output['Upper_'+_feature] = pd.Series(upper,index = rawData.index)
 
 			elif _feature[0:3] == 'RSI':
+
 				_window = np.int(_feature[4:])
-				output[_feature] = tmp.get('rsi_'+str(_window)).values
+				values = tmp.get('rsi_'+str(_window)).values		
+				output[_feature] = pd.Series(values,index=rawData.index)
 			elif _feature[0:3] == 'ADX':
-				output[_feature] = tmp.get('adx').values
+				output[_feature] = pd.Series(tmp.get('adx').values,index=rawData.index)
 
 			elif _feature[0:4] == 'MACD':
-				output[_feature] = tmp.get('macd').values
+				output[_feature] = pd.Series(tmp.get('macd').values,index=rawData.index)
 
 			elif _feature[0:3] == 'MAX':
 				_window = np.int(_feature[3:])
