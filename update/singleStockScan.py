@@ -111,7 +111,7 @@ class ScanModel(object):
 					raise ValueError('To do: implemente feature selection')
 				
 				#create final numerical input in form of numpy arrays
-				Xfull = ChartData.loc[:,ChartData.columns.isin(['Date']) == False].values
+				Xfull = ChartData.loc[:,ChartData.columns.isin(['Date','Close']) == False].values
 				
 				if scaled == True:
 					Xfull -= np.mean(Xfull,axis=0)
