@@ -39,7 +39,7 @@ class ModelPrediction(object):
 		else:
 			self.ListOfPredictions = None
 
-	def SingleRFC(self,InputData,ClassificationData,ParameterSet,ListOfFeatures,EarliestDate=None,n_estimators=200):
+	def SingleRFC(self,InputData,ClassificationData,ParameterSet,ListOfFeatures,EarliestDate=None,LatestDate=None,n_estimators=200,n_jobs=2):
 		'''
 		single random forest classification model for given parameter set
 
@@ -67,17 +67,19 @@ class ModelPrediction(object):
 		if EarliestDate is None:
 			EarliestDate = datetime.datetime(2010,1,1)
 
-		
+		if LatestDate is None:
+			LatestDate = datetime.datetime.today().date()
+
 		#Prepare InputData and OutputData
 		InputData = InputData.loc[:,InputData.columns.isin(ListOfFeatures+['Date']) == True]
 		
 		_common_dates = util.find_common_notnull_dates(InputData,ClassificationData)
 	
-		InputData = InputData.loc[(InputData['Date'].isin(_common_dates)) & (InputData['Date'] > EarliestDate)]
+		InputData = InputData.loc[(InputData['Date'].isin(_common_dates)) & (InputData['Date'] > EarliestDate) & (InputData['Date'] <= LatestDate)]
 		Input = InputData.loc[:,InputData.columns.isin(['Date']) == False].values
 	
 
-		ClassificationData = ClassificationData.loc[(ClassificationData['Date'].isin(_common_dates)) & (InputData['Date'] > EarliestDate)]
+		ClassificationData = ClassificationData.loc[(ClassificationData['Date'].isin(_common_dates)) & (InputData['Date'] > EarliestDate) & (InputData['Date'] <= LatestDate)]
 		Output = np.argmax(ClassificationData.loc[:,ClassificationData.columns.isin(['Date']) == False].values,axis=1)
 
 		if len(Input) != len(Output):
@@ -89,7 +91,7 @@ class ModelPrediction(object):
 		if np.any(Output== np.nan) == True:
 			raise ValueError('OutputData contains "NaN" entries')	
 
-		RFC = RandomForestClassifier(n_estimators=n_estimators,**ParameterSet)
+		RFC = RandomForestClassifier(n_estimators=n_estimators,n_jobs=n_jobs,**ParameterSet)
 
 		RFC.fit(Input,Output)
 
@@ -108,7 +110,7 @@ class ModelPrediction(object):
 		Returns
 		------------
 		modelParameters : dictionary contains the classification model parameters
-
+S
 		ListOfFeatures : List of strings with used features
 
 		StartingDate : datetime object gives the date to first use the input data
@@ -117,12 +119,15 @@ class ModelPrediction(object):
 		if self.ListOfPredictions is None:
 			raise ValueError('No list of predictions provided in '+self.PathData+'predictions/predictions_scan.p')
 
-		tmp =self.ListOfPredictions.loc[(self.ListOfPredictions['Labels'] == tickerSymbol) & (self.ListOfPredictions['ModelType'] == ModelType)][['BestParameters','BestParameterValues','StartingDate','ListOfFeatures']]
-
+		tmp =self.ListOfPredictions.loc[(self.ListOfPredictions['Labels'] == tickerSymbol) & (self.ListOfPredictions['ModelType'] == ModelType)][['Score','BestParameters','BestParameterValues','StartingDate','ListOfFeatures']]
+		
+		#find entry with highest score
+		tmp= tmp.loc[tmp['Score'].idxmax(),['BestParameters','BestParameterValues','StartingDate','ListOfFeatures']]
+				
 		if len(tmp) == 0:
 			raise ValueError('No matching ticker found for given modeltype')
 		else:
-			BestParameters,BestParameterValues,StartingDate,ListOfFeatures = tmp.values[0]
+			BestParameters,BestParameterValues,StartingDate,ListOfFeatures = tmp.values
 
 			modelParamters = {}
 			for k in range(len(BestParameters)):
