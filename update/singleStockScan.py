@@ -7,7 +7,7 @@ from sklearn.model_selection import cross_val_score
 from sklearn.model_selection import train_test_split,ShuffleSplit,GridSearchCV
 import datetime,sys
 import util
-
+from pandas.tseries.offsets import BDay
 
 class ModelPrediction(object):
 
@@ -38,6 +38,117 @@ class ModelPrediction(object):
 
 		else:
 			self.ListOfPredictions = None
+
+		if os.path.exists(self.PathData + 'models/stocks/') is False:
+			os.makedirs(self.PathData + 'models/stocks/')
+
+
+	def PredictStocksAll(self,DayOfPrediction=None):
+
+		if DayOfPrediction is None:
+			DayOfPrediction = datetime.datetime.today().date()
+
+		predictions = self.PredictStocks(ListOfCompanies=self.ListOfCompanies,DayOfPrediction = DayOfPrediction)
+
+		predictions.to_pickle(self.PathData+'predictions/stocks/daily_predictions_'+str(DayOfPrediction.year)+'_'+str(DayOfPrediction.month)+'_'+str(DayOfPrediction.day))
+
+		print "Daily stock prediction updated"
+	def PredictStocks(self,ListOfCompanies,DayOfPrediction):
+		'''
+		write description
+
+		'''
+
+		try: 
+			DayOfPrediction = DayOfPrediction.date()
+		except AttributeError:
+			pass
+
+		DailyPredictions = pd.DataFrame(columns=['Labels','DayOfPrediction','PredictedDay','StockPrizeAtDayOfPrediction','PredictedCategory','PredictedProbabilities'],dtype=object)
+
+		for stocklabel in ListOfCompanies:
+			
+			try:
+				tmp = pickle.load(open(self.PathData + 'models/stocks/'+stocklabel+'_model.p'))
+
+			except IOError:
+				print "Model for stock",stocklabel, "not found"
+				continue
+
+
+			try: 
+				InputData = pd.read_pickle(self.PathData + 'chart/stocks/'+stocklabel+'.p')
+			except IOError:
+				print "Input data in PredictStocks() for stock ",stocklabel,"is missing"
+				continue
+
+			if tmp['LastTrainingsDate'] >= DayOfPrediction:
+				print "DayOfPrediction for",stocklabel,"within trainings period, use later date"
+				continue 
+			
+			model = tmp['model']
+			ListOfFeatures = tmp['ListOfFeatures']
+
+			InputData = InputData.loc[InputData['Date'] == DayOfPrediction]
+			model_input = InputData.loc[:,(InputData.columns.isin(ListOfFeatures) == True) & (InputData.columns.isin(['Date']) == False)].values
+			
+			model_prediction = model.predict_proba(model_input)[0]
+			DailyPredictions = DailyPredictions.append({'Labels':stocklabel,
+				'DayOfPrediction':DayOfPrediction,
+				'PredictedDay':(DayOfPrediction+BDay(10)).date(),
+				'StockPrizeAtDayOfPrediction':InputData['Close'].values[0],
+				'PredictedCategory':np.argmax(model_prediction),
+				'PredictedProbabilities':model_prediction},ignore_index=True)
+		
+		return DailyPredictions
+
+	def ComputeStockModelsAll(self,ModelType='RFC'):
+
+		self.ComputeStockModels(ListOfTickers=self.ListOfCompanies['Yahoo Ticker'],ModelType=ModelType)
+
+
+	def ComputeStockModels(self,ListOfTickers,ModelType='RFC'):
+		'''
+		Update all stock models for companies provided in ListOfCompanies
+
+		The final model is stored in path ".. data/models/stocks/" as pickle file which includes the
+		'model': the model object,
+		'LastTrainingData': timestamp of last trainings data used
+		'timestamp': date when the model has been created			
+	
+		Parameters
+		----------------
+
+		ListOfTickers : List of strings contains yahoo tickers to compute models
+
+		ModelType : string (default = 'RFC') gives the type of model
+
+		'''
+
+		for stocklabel in ListOfTickers:
+	
+			 params= self.read_modeling_parameters(stocklabel,ModelType=ModelType)
+			 if params is None:
+			 	continue
+
+			 else:
+					ModelingParamters,Features,StartingDate = params
+
+					#try if input/output for model exist
+					try:
+						input_data = pd.read_pickle(self.PathData + 'chart/stocks/'+stocklabel+'.p')					
+						classification_data = pd.read_pickle(self.PathData+'classification/stocks/'+stocklabel+'.p')
+
+
+					except IOError:
+						print "Input data / Classification Data for stock",stocklabel,"does not exist"
+						continue
+
+					RFC_ob,LastTrainingsDate = self.SingleRFC(input_data,classification_data,ModelingParamters,Features,EarliestDate=StartingDate)
+
+					pickle.dump({'model':RFC_ob,'LastTrainingsDate':LastTrainingsDate,'timestamp':datetime.datetime.today().date(),'ModelType':ModelType,'ListOfFeatures':Features},open(self.PathData + 'models/stocks/'+stocklabel+'_model.p','wb'))
+
+					print "Final model for",stocklabel,"written"
 
 	def SingleRFC(self,InputData,ClassificationData,ParameterSet,ListOfFeatures,EarliestDate=None,LatestDate=None,n_estimators=200,n_jobs=2):
 		'''
@@ -110,10 +221,23 @@ class ModelPrediction(object):
 		Returns
 		------------
 		modelParameters : dictionary contains the classification model parameters
-S
+
 		ListOfFeatures : List of strings with used features
 
 		StartingDate : datetime object gives the date to first use the input data
+
+		Example
+		------------
+
+		tickerSymbol = 'BOSS.DE'
+		
+		s = self.read_modeling_parameters(tickerSymbol)
+		>>> s[0]
+		>>> {'max_features': 'auto', 'max_depth': 70} #dictionary of hyper parameters for RFC 
+		>>> s[1]
+		>>> ['Close', 'Volume', 'GD200', 'GD100', 'GD50', 'GD38', 'Lower_BB_20_2', 'Upper_BB_20_2', 'RSI_14', 'ADX', 'MACD', 'MAX20', 'MAX65', 'MAX130', 'MAX260', 'MIN20', 'MIN65', 'MIN130', 'MIN260'] #List of input features
+		>>> s[2]
+		>>> datetime.date(2010, 1, 1) #Earliest time at which trainings data was used
 
 		'''
 		if self.ListOfPredictions is None:
@@ -121,28 +245,51 @@ S
 
 		tmp =self.ListOfPredictions.loc[(self.ListOfPredictions['Labels'] == tickerSymbol) & (self.ListOfPredictions['ModelType'] == ModelType)][['Score','BestParameters','BestParameterValues','StartingDate','ListOfFeatures']]
 		
+		if len(tmp) == 0:
+			print 'No matching ticker found for', tickerSymbol, 'with given modeltype: '+ModelType
+			return None
+
 		#find entry with highest score
 		tmp= tmp.loc[tmp['Score'].idxmax(),['BestParameters','BestParameterValues','StartingDate','ListOfFeatures']]
-				
-		if len(tmp) == 0:
-			raise ValueError('No matching ticker found for given modeltype')
-		else:
-			BestParameters,BestParameterValues,StartingDate,ListOfFeatures = tmp.values
 
-			modelParamters = {}
-			for k in range(len(BestParameters)):
-				modelParameters =  modelParamters.update({BestParameters[k]:BestParameterValues[k]})
+		
+		BestParameters,BestParameterValues,StartingDate,ListOfFeatures = tmp.values
 
-		return modelParamters,ListOfFeatures,StartingDate
+		modelParamters = {}
+		for k in range(len(BestParameters)):
+			modelParameters =  modelParamters.update({BestParameters[k]:BestParameterValues[k]})
+
+		return [modelParamters,ListOfFeatures,StartingDate]
 
 
 
 class ScanModel(object):
 
 	def __init__(self,ModelType,FileNameListOfCompanies=None,ListOfFeatures='default',GridParameters=None,test_size =0.1,cv_splits=10,n_jobs=-3,PathData=None):
+		'''
+		The main task of this class is to scan hyper parameters of stocks and save results in file prediction_scan.p
 
+		Parameters
+		------------
+
+		ModelType : string indicates type of model, currently implemented is "RFC" for randomforst classification, To do in future: SVM, NeuralNetwork
+
+		FileNameListComapnies : string (defautl = None) file namen for lists stored in data/company_lists/, if None use full list
+
+		ListOfFeatures : List of strings (default ='default'), list of features used for final model, when "default" use all features found in data
+
+		GridParameters : dictionary (default None), dictionary including the hyper parameters for model 
+
+		test_size : float (default = 0.1), fraction of trainings data use for validation
+
+		cv_splits : int (default = 10), number of independent runs for cross validation
+
+		n_jobs : int ( default = -3), number of cores 
+
+		PathData : string (default = None), Path for the folder /data/ 
+
+		'''
 		
-
 		self.n_jobs =n_jobs
 		self.test_size = test_size
 		self.cv_splits = cv_splits
@@ -174,7 +321,7 @@ class ScanModel(object):
 		
 		if self.ModelType == 'RFC':
 			if GridParameters is None:		
-				self.ParamGrid = [{'max_depth':[10,20,50,70,100,150,200],'max_features':['auto','log2']}]
+				self.ParamGrid = [{'max_depth':[10,20,50,75,100,150,200,300],'max_features':['auto','log2']}]
 			else:
 				self.ParamGrid = GridParameters
 
@@ -194,9 +341,35 @@ class ScanModel(object):
 		return Grids.best_score_,Grids.best_params_
 
 	# To do singel RFC, single SVM, gridSearch SVM
+	def StockGridModelingAll(self,scaled=True,EarliestDate=None):
+		if EarliestDate is None:
+			EarliestDate = self.EarliestDate
+		try:
+			EarliestDate = EarliestDate.date()
+		except AttributeError:
+			pass
 
+		self.StockGridModeling(ListOfTickers=self.ListOfCompanies['Yahoo Ticker'],scaled=True,EarliestDate=EarliestDate)
 
-	def StockGridModeling(self,scaled=True):
+	def StockGridModeling(self,ListOfTickers,scaled=True,EarliestDate=None):
+
+		'''
+		Scan hyper parameters for all stocks provided in ListOfCompanyTickers and save results in data/predictions/prediction_scan.p
+
+		Parameters
+		-------------
+
+		ListOfCompanyTickers : List of strings, contains stock yahoo tickers
+
+		scaled : bool (default = True) whether or not the input features should be scaled, i.e., subtract mean and divide by standard deviation
+		
+		EarliestDate : datetime object (default = None), gives earliest date at which data is used as trainings data
+
+		Returns
+		--------------
+		None
+
+		'''
 
 		if os.path.isfile(self.PathData+'predictions/predictions_scan.p') == False:	
 		 	prediction_out = pd.DataFrame(columns=['Labels','ModelType','SearchedParameters','BestParameters','BestParameterValues','Score','Input','ListOfFeatures','Date','StartingDate'],dtype=object)
@@ -204,22 +377,33 @@ class ScanModel(object):
 
 		prediction_out = pd.read_pickle(self.PathData+'predictions/predictions_scan.p')
 
-		
-		for stocklabel in self.ListOfCompanies['Yahoo Ticker']:
+		if EarliestDate is None:
+			EarliestDate = self.EarliestDate
+
+		try:
+			EarliestDate = EarliestDate.date()
+		except AttributeError:
+			pass
+
+		for stocklabel in ListOfTickers:
 								
 			if (os.path.isfile(self.PathData+'chart/stocks/'+stocklabel+'.p') == False) or (os.path.isfile(self.PathData +'classification/stocks/'+stocklabel+'.p') == False):
 				print "Data for stock: ",stocklabel, " does not exist"
 				continue
 
 			else:
+
 				ChartData = pd.read_pickle(self.PathData+'chart/stocks/'+stocklabel+'.p') 							
 				ClassificationData= pd.read_pickle(self.PathData +'classification/stocks/'+stocklabel+'.p') 
 
 				common_dates =util.find_common_notnull_dates(ChartData,ClassificationData)
 
+				if len(common_dates) < 100:
+					print "stock",stocklabel,"does not provide enough data for modeling"
+					continue
 				#get rid of all non common rows in both data sets
-				ChartData = ChartData.loc[(ChartData['Date'].isin(common_dates)) & (ChartData['Date']>self.EarliestDate)]
-				ClassificationData = ClassificationData.loc[ClassificationData['Date'].isin(common_dates) & (ClassificationData['Date']>self.EarliestDate)]
+				ChartData = ChartData.loc[(ChartData['Date'].isin(common_dates)) & (ChartData['Date']>EarliestDate)]
+				ClassificationData = ClassificationData.loc[ClassificationData['Date'].isin(common_dates) & (ClassificationData['Date']>EarliestDate)]
 
 				#check if both files contain same date entries
 				if np.any((ChartData['Date'] == ClassificationData['Date']).values == False) == True:
@@ -239,21 +423,18 @@ class ScanModel(object):
 
 				else:
 					raise ValueError('To do: implemente feature selection')
-				
-				#create final numerical input in form of numpy arrays
-				Xfull = ChartData.loc[:,ChartData.columns.isin(['Date','Close']) == False].values
-				
-				if scaled == True:
-					Xfull -= np.mean(Xfull,axis=0)
-					Xfull /= np.std(Xfull,axis=0)
-				
-				Yfull = np.argmax(ClassificationData.loc[:,ClassificationData.columns.isin(['Date']) == False].values,axis=1)
-			
+						
 				# set random_state np.random.randint(1,1e6)
 				#Xtrain,Xval,Ytrain,Yval = train_test_split(Xfull,Yfull,self.test_size,random_state=1)
-				cv = ShuffleSplit(n_splits=self.cv_splits,test_size = self.test_size,random_state = True)
+				cv = ShuffleSplit(n_splits=self.cv_splits,test_size = self.test_size,random_state = np.random.randint(0,1000000000))
 
 				if self.ModelType == 'RFC':
+
+					#create final numerical input in form of numpy arrays
+					Xfull = ChartData.loc[:,ChartData.columns.isin(['Date','Close']) == False].values
+				
+					Yfull = np.argmax(ClassificationData.loc[:,ClassificationData.columns.isin(['Date']) == False].values,axis=1)
+
 					_out = self.gridSearchRFC(Xfull,Yfull,split_sets=cv)
 
 					#pickle.dump(_out,open('test_11.p','wb'))
@@ -262,9 +443,8 @@ class ScanModel(object):
 					#search if the same gridsearch has been performed earlier
 
 					mask = util.find_mask(prediction_out,
-						[stocklabel,self.ModelType,'Single',self.ParamGrid,InputFeatures,self.EarliestDate],
+						[stocklabel,self.ModelType,'Single',self.ParamGrid,InputFeatures,EarliestDate],
 						['Labels','ModelType','Input','SearchedParameters','ListOfFeatures','StartingDate'])
-
 
 					tmp = prediction_out.loc[mask]	
 
@@ -277,9 +457,7 @@ class ScanModel(object):
 							'BestParameterValues':_out[1].values(),'Score':_out[0],
 							'Input':'Single','ListOfFeatures':InputFeatures,
 							'Date':datetime.datetime.today().date(),
-							'StartingDate':self.EarliestDate},ignore_index=True)
-						
-
+							'StartingDate':EarliestDate},ignore_index=True)
 					
 					else:
 						
@@ -288,7 +466,6 @@ class ScanModel(object):
 						prediction_out.at[tmp.index.tolist()[0],'Score'] = _out[0]
 						prediction_out.at[tmp.index.tolist()[0],'Date'] = datetime.datetime.today().date()
 					
-
 				print "Label: ",stocklabel, "prediction done"
 			
 			#else:
