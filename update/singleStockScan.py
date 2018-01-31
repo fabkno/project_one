@@ -64,7 +64,7 @@ class ModelPrediction(object):
 		except AttributeError:
 			pass
 
-		DailyPredictions = pd.DataFrame(columns=['Labels','DayOfPrediction','PredictedDay','StockPrizeAtDayOfPrediction','PredictedCategory','PredictedProbabilities'],dtype=object)
+		DailyPredictions = pd.DataFrame(columns=['Labels','LastTrainingsDate','DayOfPrediction','PredictedDay','StockPrizeAtDayOfPrediction','PredictedCategory','PredictedProbabilities'],dtype=object)
 
 		for stocklabel in ListOfCompanies:
 			
@@ -93,7 +93,7 @@ class ModelPrediction(object):
 			model_input = InputData.loc[:,(InputData.columns.isin(ListOfFeatures) == True) & (InputData.columns.isin(['Date']) == False)].values
 			
 			model_prediction = model.predict_proba(model_input)[0]
-			DailyPredictions = DailyPredictions.append({'Labels':stocklabel,
+			DailyPredictions = DailyPredictions.append({'Labels':stocklabel,'LastTrainingsDate':tmp['LastTrainingsDate'],
 				'DayOfPrediction':DayOfPrediction,
 				'PredictedDay':(DayOfPrediction+BDay(10)).date(),
 				'StockPrizeAtDayOfPrediction':InputData['Close'].values[0],
