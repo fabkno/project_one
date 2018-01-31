@@ -92,7 +92,7 @@ class StockUpdater(object):
 		"""
 		Update stock prizes given in ListOfCompanies using yahoo finance 
 
-		If there is data to update the old file is backuped to ..._backup.p so the backup is good for one business day
+		If there is data to update the old file is backuped to .../backup/stockTicker.p so the backup is good for one business day
 
 		"""
 		print "Start updating stock prizes"
