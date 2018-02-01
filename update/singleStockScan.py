@@ -42,6 +42,10 @@ class ModelPrediction(object):
 		if os.path.exists(self.PathData + 'models/stocks/') is False:
 			os.makedirs(self.PathData + 'models/stocks/')
 
+		if os.path.exists(self.PathData + 'simulations/stocks/') is False:
+			os.makedirs(self.PathData + 'simulations/stocks/')
+
+
 
 	def PredictStocksAll(self,DayOfPrediction=None):
 
@@ -53,6 +57,7 @@ class ModelPrediction(object):
 		predictions.to_pickle(self.PathData+'predictions/stocks/daily_predictions_'+str(DayOfPrediction.year)+'_'+str(DayOfPrediction.month)+'_'+str(DayOfPrediction.day))
 
 		print "Daily stock prediction updated"
+
 	def PredictStocks(self,ListOfCompanies,DayOfPrediction):
 		'''
 		write description
@@ -89,14 +94,14 @@ class ModelPrediction(object):
 			model = tmp['model']
 			ListOfFeatures = tmp['ListOfFeatures']
 
-			InputData = InputData.loc[InputData['Date'] == DayOfPrediction]
-			model_input = InputData.loc[:,(InputData.columns.isin(ListOfFeatures) == True) & (InputData.columns.isin(['Date']) == False)].values
+			input_data = input_data.loc[input_data['Date'] == DayOfPrediction]
+			model_input = input_data.loc[:,(input_data.columns.isin(ListOfFeatures) == True) & (input_data.columns.isin(['Date']) == False)].values
 			
 			model_prediction = model.predict_proba(model_input)[0]
 			DailyPredictions = DailyPredictions.append({'Labels':stocklabel,'LastTrainingsDate':tmp['LastTrainingsDate'],
 				'DayOfPrediction':DayOfPrediction,
 				'PredictedDay':(DayOfPrediction+BDay(10)).date(),
-				'StockPrizeAtDayOfPrediction':InputData['Close'].values[0],
+				'StockPrizeAtDayOfPrediction':input_data['Close'].values[0],
 				'PredictedCategory':np.argmax(model_prediction),
 				'PredictedProbabilities':model_prediction},ignore_index=True)
 		
@@ -150,6 +155,82 @@ class ModelPrediction(object):
 
 					print "Final model for",stocklabel,"written"
 
+	def RunStockSimulation(self,Ticker,StartingDateSimulation,FinalDateSimulation,ModelType='RFC'):
+
+
+		'''
+		runs predictions for old data to compare with real results
+
+		Parameters
+		---------------
+
+		Ticker : string, Yahoo stock ticker
+
+		StartingDateSimulation : datetime object, starting date for historic simulations
+
+		FinalDateSimulation : datetime object, final date for historic simulation, when date exceeds historic data 
+
+		'''
+
+		Validations = pd.DataFrame(columns=['PredictionDay','ValidationDay','PrizeAtPrediction','PrizeAtValidaion','RelativePrizeChange(%)','TrueCategory','PredictedCategory','PredictedProbabilities'],dtype=object)
+
+		params= self.read_modeling_parameters(Ticker,ModelType=ModelType)
+		if params is None:
+			raise ValueError("Parameter values for stock",Ticker,"not found in prediction data base")
+			
+		else:
+
+			ModelingParamters,ListOfFeatures,StartingDateTraining = params
+				#try if input/output for model exist
+		try:
+			input_data = pd.read_pickle(self.PathData + 'chart/stocks/'+Ticker+'.p')					
+			classification_data = pd.read_pickle(self.PathData+'classification/stocks/'+Ticker+'.p')
+
+
+		except IOError:
+				raise ValueError("Input data / Classification Data for stock",Ticker,"does not exist")
+		
+		#for Star		
+		_starting_dates_simulations =  classification_data.loc[(classification_data['Date']>=StartingDateSimulation) &(classification_data['Date']<=FinalDateSimulation)]['Date'].tolist()
+		
+		for _starting_date in _starting_dates_simulations:
+		#print len(input_data.loc[(input_data['Date']>=StartingDateSimulation) &(input_data['Date']<=FinalDateSimulation)]),np.busday_count(FinalDateSimulation,StartingDateSimulation)
+
+
+			inputSimulation= input_data.loc[(input_data['Date']>=StartingDateTraining) & (input_data['Date']<_starting_date)]
+			classificationSimulation =classification_data.loc[(classification_data['Date']>=StartingDateTraining) & (classification_data['Date']<_starting_date)]
+
+
+			effectiveStartingDate= inputSimulation.tail(1)['Date'].tolist()[0].date()
+		 
+			RFC_ob,LastTrainingsDate = self.SingleRFC(inputSimulation,classificationSimulation,ModelingParamters,ListOfFeatures,EarliestDate=StartingDateTraining,n_estimators=100)
+
+			index_tmp = input_data.loc[input_data['Date'] == effectiveStartingDate].index.tolist()[0]
+			DayOfPrediction = input_data.loc[index_tmp + 1]['Date'].date()
+
+			model_input = input_data.loc[index_tmp+1,(input_data.columns.isin(ListOfFeatures) == True) & (input_data.columns.isin(['Date']) == False)].values
+			
+			prediction= RFC_ob.predict_proba(model_input.reshape(1,-1))
+
+
+			#print classification
+			close_at_predictionday = input_data.loc[index_tmp+1]['Close']
+			close_at_validationday = input_data.loc[index_tmp+11]['Close']
+
+			Validations = Validations.append({'PredictionDay':DayOfPrediction,
+				'ValidationDay':input_data.loc[index_tmp+11]['Date'].date(),
+				'PrizeAtPrediction':close_at_predictionday,
+				'PrizeAtValidaion':close_at_validationday,
+				'RelativePrizeChange(%)':(close_at_validationday-close_at_predictionday)/close_at_predictionday * 100,
+				'TrueCategory':np.argmax(classification_data.loc[index_tmp+1,classification_data.columns.isin(['Date']) == False].values),
+				'PredictedCategory':np.argmax(prediction),
+				'PredictedProbabilities':prediction[0]
+				},ignore_index=True)
+
+		
+		Validations.to_pickle(self.PathData + 'simulations/stocks/'+Ticker+'_prediction.p')
+		
+
 	def SingleRFC(self,InputData,ClassificationData,ParameterSet,ListOfFeatures,EarliestDate=None,LatestDate=None,n_estimators=200,n_jobs=2):
 		'''
 		single random forest classification model for given parameter set
@@ -193,14 +274,15 @@ class ModelPrediction(object):
 		ClassificationData = ClassificationData.loc[(ClassificationData['Date'].isin(_common_dates)) & (InputData['Date'] > EarliestDate) & (InputData['Date'] <= LatestDate)]
 		Output = np.argmax(ClassificationData.loc[:,ClassificationData.columns.isin(['Date']) == False].values,axis=1)
 
-		if len(Input) != len(Output):
-			raise ValueError('Length of input data does not match lenght of output data')
+		util.check_for_length_and_nan(Input,Output)
+		# if len(Input) != len(Output):
+		# 	raise ValueError('Length of input data does not match lenght of output data')
 
-		#double check that  "NaN" values are left over
-		if np.any(Input == np.nan) == True:
-			raise ValueError('InputData contains "NaN" entries')	
-		if np.any(Output== np.nan) == True:
-			raise ValueError('OutputData contains "NaN" entries')	
+		# #double check that  "NaN" values are left over
+		# if np.any(Input == np.nan) == True:
+		# 	raise ValueError('InputData contains "NaN" entries')	
+		# if np.any(Output== np.nan) == True:
+		# 	raise ValueError('OutputData contains "NaN" entries')	
 
 		RFC = RandomForestClassifier(n_estimators=n_estimators,n_jobs=n_jobs,**ParameterSet)
 
