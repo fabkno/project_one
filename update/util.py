@@ -55,3 +55,29 @@ def find_common_notnull_dates(A,B):
 	commonDates = list(set(DatesA) & set(DatesB))
 	commonDates.sort()
 	return commonDates
+
+def check_for_length_and_nan(A,B):
+	'''
+	checks that both data frames have equal length and do not contain any NaNs
+
+	Parameters
+	--------------
+
+	A : pandas DataFrame
+
+	B : pandas DataFrame
+
+	Returns
+	-------------
+	None 
+	'''
+
+	if len(A) != len(B):
+		raise ValueError('Length of input data does not match lenght of output data')
+
+	#double check that  "NaN" values are left over
+	if np.any(A == np.nan) == True:
+		raise ValueError('InputData contains "NaN" entries')	
+	if np.any(B== np.nan) == True:
+		raise ValueError('OutputData contains "NaN" entries')	
+
