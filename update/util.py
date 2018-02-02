@@ -76,8 +76,9 @@ def check_for_length_and_nan(A,B):
 		raise ValueError('Length of input data does not match lenght of output data')
 
 	#double check that  "NaN" values are left over
-	if np.any(A == np.nan) == True:
+
+	if pd.isnull(A).values.any() == True:
 		raise ValueError('InputData contains "NaN" entries')	
-	if np.any(B== np.nan) == True:
+	if pd.isnull(A).values.any() == True:
 		raise ValueError('OutputData contains "NaN" entries')	
 

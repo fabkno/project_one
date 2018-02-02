@@ -3,6 +3,7 @@ import pandas as pd
 import os
 import cPickle as pickle
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.svm import SVC
 from sklearn.model_selection import cross_val_score
 from sklearn.model_selection import train_test_split,ShuffleSplit,GridSearchCV
 import datetime,sys
@@ -107,12 +108,12 @@ class ModelPrediction(object):
 		
 		return DailyPredictions
 
-	def ComputeStockModelsAll(self,ModelType='RFC'):
+	def ComputeStockModelsAll(self):
 
-		self.ComputeStockModels(ListOfTickers=self.ListOfCompanies['Yahoo Ticker'],ModelType=ModelType)
+		self.ComputeStockModels(ListOfTickers=self.ListOfCompanies['Yahoo Ticker'])
 
 
-	def ComputeStockModels(self,ListOfTickers,ModelType='RFC'):
+	def ComputeStockModels(self,ListOfTickers):
 		'''
 		Update all stock models for companies provided in ListOfCompanies
 
@@ -132,12 +133,12 @@ class ModelPrediction(object):
 
 		for stocklabel in ListOfTickers:
 	
-			 params= self.read_modeling_parameters(stocklabel,ModelType=ModelType)
+			 params= self.read_modeling_parameters(stocklabel)
 			 if params is None:
 			 	continue
 
 			 else:
-					ModelingParamters,Features,StartingDate = params
+					ModelType,ModelingParamters,Features,StartingDate = params
 
 					#try if input/output for model exist
 					try:
@@ -149,9 +150,13 @@ class ModelPrediction(object):
 						print "Input data / Classification Data for stock",stocklabel,"does not exist"
 						continue
 
-					RFC_ob,LastTrainingsDate = self.SingleRFC(input_data,classification_data,ModelingParamters,Features,EarliestDate=StartingDate)
+					if ModelType == 'RFC':
+						RFC_ob,LastTrainingsDate = self.SingleRFC(input_data,classification_data,ModelingParamters,Features,EarliestDate=StartingDate)
+						pickle.dump({'model':RFC_ob,'LastTrainingsDate':LastTrainingsDate,'timestamp':datetime.datetime.today().date(),'ModelType':ModelType,'ListOfFeatures':Features},open(self.PathData + 'models/stocks/'+stocklabel+'_model.p','wb'))
 
-					pickle.dump({'model':RFC_ob,'LastTrainingsDate':LastTrainingsDate,'timestamp':datetime.datetime.today().date(),'ModelType':ModelType,'ListOfFeatures':Features},open(self.PathData + 'models/stocks/'+stocklabel+'_model.p','wb'))
+					elif ModelType == 'SVM':
+						SVM_ob,LastTrainingsDate,scaling= self.SingleSVM(input_data,classification_data,ModelingParamters,Features,EarliestDate=StartingDate)
+						pickle.dump({'model':RFC_ob,'LastTrainingsDate':LastTrainingsDate,'timestamp':datetime.datetime.today().date(),'ModelType':ModelType,'ListOfFeatures':Features},open(self.PathData + 'models/stocks/'+stocklabel+'_model.p','wb'))
 
 					print "Final model for",stocklabel,"written"
 
@@ -229,7 +234,48 @@ class ModelPrediction(object):
 
 		
 		Validations.to_pickle(self.PathData + 'simulations/stocks/'+Ticker+'_prediction.p')
+	
+
+	def SingleSVM(self,InputData,ClassificationData,ParameterSet,ListOfFeatures,EarliestDate=None,LatestDate=None,n_jobs=2,scaled = True):
+		'''
+		single SVM (linear or with kernel)
+
+		To Do
+		'''
+		if EarliestDate is None:
+			EarliestDate = datetime.datetime(2010,1,1)
+
+		if LatestDate is None:
+			LatestDate = datetime.datetime.today().date()
+
+		#Prepare InputData and OutputData
+		InputData = InputData.loc[:,InputData.columns.isin(ListOfFeatures+['Date']) == True]
 		
+		_common_dates = util.find_common_notnull_dates(InputData,ClassificationData)
+	
+		InputData = InputData.loc[(InputData['Date'].isin(_common_dates)) & (InputData['Date'] > EarliestDate) & (InputData['Date'] <= LatestDate)]
+		Input = InputData.loc[:,InputData.columns.isin(['Date']) == False].values
+		
+		if scaled == True:
+			input_mean = np.mean(Input,axis=0)
+			input_std = np.std(Input,axis=0)
+
+			Input -=input_mean
+			Input /=input_std
+
+		ClassificationData = ClassificationData.loc[(ClassificationData['Date'].isin(_common_dates)) & (InputData['Date'] > EarliestDate) & (InputData['Date'] <= LatestDate)]
+		Output = np.argmax(ClassificationData.loc[:,ClassificationData.columns.isin(['Date']) == False].values,axis=1)
+
+		util.check_for_length_and_nan(Input,Output)
+
+		SVM = SVC(n_jobs=n_jobs,**ParameterSet)
+
+		SVM.fit(Input,Output)
+
+		if scaled == True:
+			return SVM,InputData.tail(1)['Date'].tolist()[0].date(),{'mean':input_mean,'std':input_std}
+		else:
+			return SVM,InputData.tail(1)['Date'].tolist()[0].date()
 
 	def SingleRFC(self,InputData,ClassificationData,ParameterSet,ListOfFeatures,EarliestDate=None,LatestDate=None,n_estimators=200,n_jobs=2):
 		'''
@@ -278,19 +324,13 @@ class ModelPrediction(object):
 		# if len(Input) != len(Output):
 		# 	raise ValueError('Length of input data does not match lenght of output data')
 
-		# #double check that  "NaN" values are left over
-		# if np.any(Input == np.nan) == True:
-		# 	raise ValueError('InputData contains "NaN" entries')	
-		# if np.any(Output== np.nan) == True:
-		# 	raise ValueError('OutputData contains "NaN" entries')	
-
 		RFC = RandomForestClassifier(n_estimators=n_estimators,n_jobs=n_jobs,**ParameterSet)
 
 		RFC.fit(Input,Output)
 
 		return RFC,InputData.tail(1)['Date'].tolist()[0].date()
 
-	def read_modeling_parameters(self,tickerSymbol,ModelType='RFC'):
+	def read_modeling_parameters(self,tickerSymbol,ModelType=None):
 		'''
 		reads from predictions.csv that highest score parameter set
 
@@ -325,29 +365,36 @@ class ModelPrediction(object):
 		if self.ListOfPredictions is None:
 			raise ValueError('No list of predictions provided in '+self.PathData+'predictions/predictions_scan.p')
 
-		tmp =self.ListOfPredictions.loc[(self.ListOfPredictions['Labels'] == tickerSymbol) & (self.ListOfPredictions['ModelType'] == ModelType)][['Score','BestParameters','BestParameterValues','StartingDate','ListOfFeatures']]
+		if ModelType is None:
+			tmp =self.ListOfPredictions.loc[(self.ListOfPredictions['Labels'] == tickerSymbol) & (self.ListOfPredictions['ModelType'] == ModelType)][['Score','BestParameters','BestParameterValues','StartingDate','ListOfFeatures','ModelType']]
+			if len(tmp) == 0:
+				print 'No matching ticker found for', tickerSymbol
+				return None
 		
-		if len(tmp) == 0:
-			print 'No matching ticker found for', tickerSymbol, 'with given modeltype: '+ModelType
-			return None
+		else:
+			tmp =self.ListOfPredictions.loc[self.ListOfPredictions['Labels'] == tickerSymbol][['Score','BestParameters','BestParameterValues','StartingDate','ListOfFeatures']]
+			if len(tmp) == 0:
+				print 'No matching ticker found for', tickerSymbol, 'with given modeltype: '+ModelType
+				return None
+	
 
 		#find entry with highest score
-		tmp= tmp.loc[tmp['Score'].idxmax(),['BestParameters','BestParameterValues','StartingDate','ListOfFeatures']]
+		tmp= tmp.loc[tmp['Score'].idxmax(),['BestParameters','BestParameterValues','StartingDate','ListOfFeatures','ModelType']]
 
 		
-		BestParameters,BestParameterValues,StartingDate,ListOfFeatures = tmp.values
+		BestParameters,BestParameterValues,StartingDate,ListOfFeatures,ModelType = tmp.values
 
 		modelParamters = {}
 		for k in range(len(BestParameters)):
 			modelParameters =  modelParamters.update({BestParameters[k]:BestParameterValues[k]})
 
-		return [modelParamters,ListOfFeatures,StartingDate]
+		return [ModelType,modelParamters,ListOfFeatures,StartingDate]
 
 
 
 class ScanModel(object):
 
-	def __init__(self,ModelType,FileNameListOfCompanies=None,ListOfFeatures='default',GridParameters=None,test_size =0.1,cv_splits=10,n_jobs=-3,PathData=None):
+	def __init__(self,ModelType,FileNameListOfCompanies=None,ListOfFeatures='default',GridParameters=None,test_size =0.1,cv_splits=5,n_jobs=-2,PathData=None):
 		'''
 		The main task of this class is to scan hyper parameters of stocks and save results in file prediction_scan.p
 
@@ -409,16 +456,29 @@ class ScanModel(object):
 
 		elif self.ModelType == 'SVM':
 			if GridParameters is None:
-				self.ParamGrid = [] #To Do
+				self.ParamGrid = [{'C':[1e-1,1,5,1e1,1e2],'gamma':[1e-2,1e-1,0.5,1,5,1e1],'kernel':['rbf']}] 
+				
+			else:
+				self.ParamGrid
+
 
 		if os.path.exists(self.PathData + 'predictions') is False:
 			os.makedirs(self.PathData + 'predictions')
 
 
 #		self.val_sets = ShuffleSplit(n_splits = )
-	def gridSearchRFC(self,Input,Output,split_sets):
-		RFC = RandomForestClassifier(n_estimators=100)
-		Grids =GridSearchCV(RFC,self.ParamGrid,cv=split_sets,n_jobs=self.n_jobs)
+	def gridSearch(self,Input,Output,split_sets,modeltype='RFC'):
+		'''
+		grid search function for random forest classifier
+
+		'''
+		if modeltype == 'RFC':
+			ob = RandomForestClassifier(n_estimators=100)
+		
+		elif modeltype == 'SVM':
+			ob = SVC()
+
+		Grids =GridSearchCV(ob,self.ParamGrid,cv=split_sets,n_jobs=self.n_jobs)
 		Grids.fit(Input,Output)
 		return Grids.best_score_,Grids.best_params_
 
@@ -484,18 +544,12 @@ class ScanModel(object):
 					print "stock",stocklabel,"does not provide enough data for modeling"
 					continue
 				#get rid of all non common rows in both data sets
+				
 				ChartData = ChartData.loc[(ChartData['Date'].isin(common_dates)) & (ChartData['Date']>EarliestDate)]
 				ClassificationData = ClassificationData.loc[ClassificationData['Date'].isin(common_dates) & (ClassificationData['Date']>EarliestDate)]
-
+				
 				#check if both files contain same date entries
-				if np.any((ChartData['Date'] == ClassificationData['Date']).values == False) == True:
-					raise ValueError('Dates of InputData and OutputData do not coincide')
-
-				#double check that  "NaN" values are left over
-				if np.any(ChartData.values == np.nan) == True:
-					raise ValueError('InputData contains "NaN" entries')	
-				if np.any(ClassificationData.values == np.nan) == True:
-					raise ValueError('OutputData contains "NaN" entries')	
+				util.check_for_length_and_nan(ChartData,ClassificationData)
 
 				'''
 				check for feature in featurelist
@@ -510,43 +564,48 @@ class ScanModel(object):
 				#Xtrain,Xval,Ytrain,Yval = train_test_split(Xfull,Yfull,self.test_size,random_state=1)
 				cv = ShuffleSplit(n_splits=self.cv_splits,test_size = self.test_size,random_state = np.random.randint(0,1000000000))
 
-				if self.ModelType == 'RFC':
 
-					#create final numerical input in form of numpy arrays
-					Xfull = ChartData.loc[:,ChartData.columns.isin(['Date','Close']) == False].values
+
+				#create final numerical input in form of numpy arrays
+
+				Xfull = ChartData.loc[:,ChartData.columns.isin(['Date','Close']) == False].values
+
+				if scaled is True:
+					Xfull -= np.mean(Xfull,axis=0)
+					Xfull /= np.std(Xfull,axis=0)
+
+				Yfull = np.argmax(ClassificationData.loc[:,ClassificationData.columns.isin(['Date']) == False].values,axis=1)
+
+				_out = self.gridSearch(Xfull,Yfull,split_sets=cv,modeltype=self.ModelType)
+
+				#pickle.dump(_out,open('test_11.p','wb'))
 				
-					Yfull = np.argmax(ClassificationData.loc[:,ClassificationData.columns.isin(['Date']) == False].values,axis=1)
+				#print [self._find_index(prediction_out,n,'S')]
+				#search if the same gridsearch has been performed earlier
 
-					_out = self.gridSearchRFC(Xfull,Yfull,split_sets=cv)
+				mask = util.find_mask(prediction_out,
+					[stocklabel,self.ModelType,'Single',self.ParamGrid,InputFeatures,EarliestDate],
+					['Labels','ModelType','Input','SearchedParameters','ListOfFeatures','StartingDate'])
 
-					#pickle.dump(_out,open('test_11.p','wb'))
+				tmp = prediction_out.loc[mask]	
+
+				if len(tmp) == 0:
+
+					prediction_out = prediction_out.append({'Labels':stocklabel,
+						'ModelType':self.ModelType,
+						'SearchedParameters':self.ParamGrid,
+						'BestParameters':_out[1].keys(),
+						'BestParameterValues':_out[1].values(),'Score':_out[0],
+						'Input':'Single','ListOfFeatures':InputFeatures,
+						'Date':datetime.datetime.today().date(),
+						'StartingDate':EarliestDate},ignore_index=True)
+				
+				else:
 					
-					#print [self._find_index(prediction_out,n,'S')]
-					#search if the same gridsearch has been performed earlier
-
-					mask = util.find_mask(prediction_out,
-						[stocklabel,self.ModelType,'Single',self.ParamGrid,InputFeatures,EarliestDate],
-						['Labels','ModelType','Input','SearchedParameters','ListOfFeatures','StartingDate'])
-
-					tmp = prediction_out.loc[mask]	
-
-					if len(tmp) == 0:
-
-						prediction_out = prediction_out.append({'Labels':stocklabel,
-							'ModelType':self.ModelType,
-							'SearchedParameters':self.ParamGrid,
-							'BestParameters':_out[1].keys(),
-							'BestParameterValues':_out[1].values(),'Score':_out[0],
-							'Input':'Single','ListOfFeatures':InputFeatures,
-							'Date':datetime.datetime.today().date(),
-							'StartingDate':EarliestDate},ignore_index=True)
-					
-					else:
-						
-						prediction_out.at[tmp.index.tolist()[0],'BestParameters'] = _out[1].keys()
-						prediction_out.at[tmp.index.tolist()[0],'BestParameterValues'] = _out[1].values()
-						prediction_out.at[tmp.index.tolist()[0],'Score'] = _out[0]
-						prediction_out.at[tmp.index.tolist()[0],'Date'] = datetime.datetime.today().date()
+					prediction_out.at[tmp.index.tolist()[0],'BestParameters'] = _out[1].keys()
+					prediction_out.at[tmp.index.tolist()[0],'BestParameterValues'] = _out[1].values()
+					prediction_out.at[tmp.index.tolist()[0],'Score'] = _out[0]
+					prediction_out.at[tmp.index.tolist()[0],'Date'] = datetime.datetime.today().date()
 					
 				print "Label: ",stocklabel, "prediction done"
 			

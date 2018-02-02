@@ -99,7 +99,8 @@ class StockUpdater(object):
 		print "--------------------------------------\n"
 
 		self.UpdateTimeEnd = datetime.datetime.today().date()
-		print "Today is ",self.UpdateTimeEnd
+		print "Today is ",self.UpdateTimeEnd,"\n"
+
 		for stocklabel in self.ListOfCompanies['Yahoo Ticker']:
 
 			if os.path.isfile(self.PathData + 'raw/stocks/'+stocklabel+'.p'):
@@ -108,7 +109,8 @@ class StockUpdater(object):
 				self.UpdateTimeStart = StockValue.tail(1)['Date'].tolist()[0].date()				
 
 				#if stock has been updated at the same date already
-				if self.UpdateTimeStart == self.UpdateTimeEnd:
+				
+				if self.UpdateTimeStart ==  self.UpdateTimeEnd:
 					continue
 				try:
 					
@@ -117,18 +119,19 @@ class StockUpdater(object):
 					stock_prize.drop(index=stock_prize.loc[stock_prize['Volume'] == 0.0].index.tolist(),inplace=True)
 					stock_prize.reset_index(inplace=True)
 
-					
+					#print stock_prize
 					stock_prize = stock_prize.loc[stock_prize['Date']>self.UpdateTimeStart]
 					
 					if len(stock_prize) == 0:
 						continue
-
+					
 					StockValue = pd.concat([StockValue, stock_prize], ignore_index=True)
 
 					shutil.copy(self.PathData+'raw/stocks/'+stocklabel+'.p',self.PathData+'raw/stocks/backup/'+stocklabel+'.p')
 					
 					print "number of rows", len(StockValue), " for label", stocklabel
-					StockValue.reset_index(inplace=True)
+					StockValue.reset_index(inplace=True,drop=True)
+					
 					StockValue.to_pickle(self.PathData+'raw/stocks/'+stocklabel+'.p')
 					print "Stock ",stocklabel, " updated"
 
@@ -143,8 +146,11 @@ class StockUpdater(object):
 					stock_prize = pdr.get_data_yahoo(stocklabel,self.UpdateTimeStart,self.UpdateTimeEnd)
 					stock_prize.drop(index=stock_prize.loc[stock_prize['Volume'] == 0.0].index.tolist(),inplace=True)
 					stock_prize.dropna(inplace=True)
-					stock_prize.reset_index(inplace=True)
+					stock_prize = stock_prize.reset_index()
+					
+					#print stock_prize
 					stock_prize.to_pickle(self.PathData+'raw/stocks/'+stocklabel+'.p')
+
 					print "Stock ",stocklabel, " updated"
 
 				except RemoteDataError:
