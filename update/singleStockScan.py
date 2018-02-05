@@ -9,10 +9,15 @@ from sklearn.model_selection import train_test_split,ShuffleSplit,GridSearchCV
 import datetime,sys
 import util
 from pandas.tseries.offsets import BDay
+from logger import Log
 
-class ModelPrediction(object):
+class ModelPrediction(Log):
+	'''
+	Add description ...
+	'''
+	def __init__(self,FileNameListOfCompanies=None,PathData=None,n_jobs=-2):
 
-	def __init__(self,FileNameListOfCompanies=None,PathData=None):
+		Log.__init__(self,PathData=PathData)
 
 		if PathData is None:
 				self.PathData = os.path.dirname(os.getcwd())+'/data/'
@@ -27,10 +32,11 @@ class ModelPrediction(object):
 			if os.path.isfile(self.PathData+'company_lists/'+FileNameListOfCompanies) is True:
 				self.FileNameListOfCompanies = FileNameListOfCompanies
 			else:
+				self.logging("ValueError: List :"+FileNameListOfCompanies + "does not exists in " +self.PathData + "company_lists/")
 				raise ValueError('List: '+FileNameListOfCompanies + ' does not exists in' +self.PathData + 'company_lists/')
 
 		self.ListOfCompanies = pd.read_csv(self.PathData+'company_lists/'+self.FileNameListOfCompanies,index_col='Unnamed: 0')
-
+		self.n_jobs = n_jobs
 		if os.path.exists(self.PathData + 'predictions/stocks/') is False:
 			os.makedirs(self.PathData + 'predictions/stocks/')
 
@@ -53,13 +59,13 @@ class ModelPrediction(object):
 		if DayOfPrediction is None:
 			DayOfPrediction = datetime.datetime.today().date()
 
-		predictions = self.PredictStocks(ListOfCompanies=self.ListOfCompanies,DayOfPrediction = DayOfPrediction)
+		predictions = self.PredictStocks(ListOfTickers=self.ListOfCompanies['Yahoo Ticker'],DayOfPrediction = DayOfPrediction)
 
-		predictions.to_pickle(self.PathData+'predictions/stocks/daily_predictions_'+str(DayOfPrediction.year)+'_'+str(DayOfPrediction.month)+'_'+str(DayOfPrediction.day))
+		predictions.to_pickle(self.PathData+'predictions/stocks/daily_predictions_'+str(DayOfPrediction.year)+'_'+str(DayOfPrediction.month)+'_'+str(DayOfPrediction.day)+'.p')
 
 		print "Daily stock prediction updated"
 
-	def PredictStocks(self,ListOfCompanies,DayOfPrediction):
+	def PredictStocks(self,ListOfTickers,DayOfPrediction):
 		'''
 		write description
 
@@ -70,42 +76,65 @@ class ModelPrediction(object):
 		except AttributeError:
 			pass
 
-		DailyPredictions = pd.DataFrame(columns=['Labels','LastTrainingsDate','DayOfPrediction','PredictedDay','StockPrizeAtDayOfPrediction','PredictedCategory','PredictedProbabilities'],dtype=object)
+		DailyPredictions = pd.DataFrame(columns=['Labels','LastTrainingsDate','DayOfPrediction','PredictedDay','StockPrizeAtDayOfPrediction','PredictedCategory','PredictedProbabilities','ModelType'],dtype=object)
 
-		for stocklabel in ListOfCompanies:
+		for stocklabel in ListOfTickers:
 			
 			try:
 				tmp = pickle.load(open(self.PathData + 'models/stocks/'+stocklabel+'_model.p'))
 
 			except IOError:
+				self.logging("IOError: Stock "+stocklabel+": model not found")
 				print "Model for stock",stocklabel, "not found"
 				continue
 
 
 			try: 
-				InputData = pd.read_pickle(self.PathData + 'chart/stocks/'+stocklabel+'.p')
+				input_data = pd.read_pickle(self.PathData + 'chart/stocks/'+stocklabel+'.p')
 			except IOError:
+				self.logging("IOError: Stock "+stocklabel+": input data is missings")
 				print "Input data in PredictStocks() for stock ",stocklabel,"is missing"
 				continue
 
 			if tmp['LastTrainingsDate'] >= DayOfPrediction:
+				self.logging("Stock "+stocklabel+": DayOfPrediction within trainings period, use later date")
 				print "DayOfPrediction for",stocklabel,"within trainings period, use later date"
 				continue 
 			
 			model = tmp['model']
-			ListOfFeatures = tmp['ListOfFeatures']
+			ListOfFeatures = tmp['ListOfFeatures']		
+			modeltype = tmp['ModelType']
+
+			input_data = input_data.tail(10)
+			#input_data = input_data.loc[input_data['Date'] == DayOfPrediction]
+			
+			if len(input_data.loc[input_data['Date'] == DayOfPrediction]) == 0:
+				self.logging('Stock '+stocklabel+': input data for today does not exist yet, take last business day to predict')
+				DayOfPrediction = input_data.tail(1)['Date'].tolist()[0].date()
 
 			input_data = input_data.loc[input_data['Date'] == DayOfPrediction]
+			
 			model_input = input_data.loc[:,(input_data.columns.isin(ListOfFeatures) == True) & (input_data.columns.isin(['Date']) == False)].values
 			
+			if modeltype != 'RFC':			
+				try:
+					model_input -= tmp['scaling']['mean']
+					model_input /= tmp['scaling']['std']
+
+				except KeyError:
+					self.logging("KeyError: Stock "+stocklabel+": no scaling object found, continue without scaling data")
+					pass
+	
 			model_prediction = model.predict_proba(model_input)[0]
 			DailyPredictions = DailyPredictions.append({'Labels':stocklabel,'LastTrainingsDate':tmp['LastTrainingsDate'],
 				'DayOfPrediction':DayOfPrediction,
 				'PredictedDay':(DayOfPrediction+BDay(10)).date(),
 				'StockPrizeAtDayOfPrediction':input_data['Close'].values[0],
 				'PredictedCategory':np.argmax(model_prediction),
-				'PredictedProbabilities':model_prediction},ignore_index=True)
-		
+				'PredictedProbabilities':np.round(model_prediction,decimals=3),
+				'ModelType':modeltype},ignore_index=True)
+			
+			self.logging("Stock "+stocklabel+": daily prediction done")
 		return DailyPredictions
 
 	def ComputeStockModelsAll(self):
@@ -147,6 +176,7 @@ class ModelPrediction(object):
 
 
 					except IOError:
+						self.logging("IOError: Stock "+stocklabel+": input data / classification data not found")
 						print "Input data / Classification Data for stock",stocklabel,"does not exist"
 						continue
 
@@ -155,12 +185,18 @@ class ModelPrediction(object):
 						pickle.dump({'model':RFC_ob,'LastTrainingsDate':LastTrainingsDate,'timestamp':datetime.datetime.today().date(),'ModelType':ModelType,'ListOfFeatures':Features},open(self.PathData + 'models/stocks/'+stocklabel+'_model.p','wb'))
 
 					elif ModelType == 'SVM':
-						SVM_ob,LastTrainingsDate,scaling= self.SingleSVM(input_data,classification_data,ModelingParamters,Features,EarliestDate=StartingDate)
-						pickle.dump({'model':RFC_ob,'LastTrainingsDate':LastTrainingsDate,'timestamp':datetime.datetime.today().date(),'ModelType':ModelType,'ListOfFeatures':Features},open(self.PathData + 'models/stocks/'+stocklabel+'_model.p','wb'))
-
+						_out = self.SingleSVM(input_data,classification_data,ModelingParamters,Features,EarliestDate=StartingDate)
+						if len(_out) == 2:
+							SVM_ob,LastTrainingsDate= _out
+							pickle.dump({'model':SVM_ob,'LastTrainingsDate':LastTrainingsDate,'timestamp':datetime.datetime.today().date(),'ModelType':ModelType,'ListOfFeatures':Features},open(self.PathData + 'models/stocks/'+stocklabel+'_model.p','wb'))
+						elif len(_out) == 3:
+							SVM_ob,LastTrainingsDate,scaling= _out
+							pickle.dump({'model':SVM_ob,'LastTrainingsDate':LastTrainingsDate,'timestamp':datetime.datetime.today().date(),'ModelType':ModelType,'ListOfFeatures':Features,'scaling':scaling},open(self.PathData + 'models/stocks/'+stocklabel+'_model.p','wb'))
+					
+					self.logging("Stock "+stocklabel+": final model written")
 					print "Final model for",stocklabel,"written"
 
-	def RunStockSimulation(self,Ticker,StartingDateSimulation,FinalDateSimulation,ModelType='RFC'):
+	def RunStockSimulation(self,Ticker,StartingDateSimulation,FinalDateSimulation,ModelType=None,scaled=True):
 
 
 		'''
@@ -176,16 +212,18 @@ class ModelPrediction(object):
 		FinalDateSimulation : datetime object, final date for historic simulation, when date exceeds historic data 
 
 		'''
+		scaling = None
 
 		Validations = pd.DataFrame(columns=['PredictionDay','ValidationDay','PrizeAtPrediction','PrizeAtValidaion','RelativePrizeChange(%)','TrueCategory','PredictedCategory','PredictedProbabilities'],dtype=object)
 
 		params= self.read_modeling_parameters(Ticker,ModelType=ModelType)
 		if params is None:
+			self.logging("ValueError: Stock "+Ticker+": parameter values not found in prediction data base")
 			raise ValueError("Parameter values for stock",Ticker,"not found in prediction data base")
 			
 		else:
 
-			ModelingParamters,ListOfFeatures,StartingDateTraining = params
+			ModelType,ModelingParamters,ListOfFeatures,StartingDateTraining = params
 				#try if input/output for model exist
 		try:
 			input_data = pd.read_pickle(self.PathData + 'chart/stocks/'+Ticker+'.p')					
@@ -193,6 +231,7 @@ class ModelPrediction(object):
 
 
 		except IOError:
+				self.logging("IOError: Stock "+stocklabel+": input data / classification data not found")
 				raise ValueError("Input data / Classification Data for stock",Ticker,"does not exist")
 		
 		#for Star		
@@ -207,15 +246,25 @@ class ModelPrediction(object):
 
 
 			effectiveStartingDate= inputSimulation.tail(1)['Date'].tolist()[0].date()
-		 
-			RFC_ob,LastTrainingsDate = self.SingleRFC(inputSimulation,classificationSimulation,ModelingParamters,ListOfFeatures,EarliestDate=StartingDateTraining,n_estimators=100)
+		 	if ModelType == 'RFC':
+				model_ob,LastTrainingsDate = self.SingleRFC(inputSimulation,classificationSimulation,ModelingParamters,ListOfFeatures,EarliestDate=StartingDateTraining,n_estimators=100)
+
+			elif ModelType == "SVM" and scaled == True:
+				model_ob,LastTrainingsDate,scaling = self.SingleSVM(inputSimulation,classificationSimulation,ModelingParamters,ListOfFeatures,EarliestDate=StartingDateTraining,scaled=scaled)
 
 			index_tmp = input_data.loc[input_data['Date'] == effectiveStartingDate].index.tolist()[0]
 			DayOfPrediction = input_data.loc[index_tmp + 1]['Date'].date()
 
+
 			model_input = input_data.loc[index_tmp+1,(input_data.columns.isin(ListOfFeatures) == True) & (input_data.columns.isin(['Date']) == False)].values
-			
-			prediction= RFC_ob.predict_proba(model_input.reshape(1,-1))
+
+
+			if scaling is not None:
+				model_input -= scaling['mean']
+				model_input /= scaling['std']
+
+
+			prediction= model_ob.predict_proba(model_input.reshape(1,-1))
 
 
 			#print classification
@@ -234,7 +283,9 @@ class ModelPrediction(object):
 
 		
 		Validations.to_pickle(self.PathData + 'simulations/stocks/'+Ticker+'_prediction.p')
-	
+		self.logging("Stock: "+Ticker+" simlation finished from "+str(StartingDateSimulation) + " until "+str(_starting_dates_simulations[-1].date())+ " with modeltype: "+ModelType)
+
+		print "Finished stock simulation for stock: "+Ticker+" from "+str(StartingDateSimulation) + " until "+str(_starting_dates_simulations[-1].date())+" with modeltype: "+ModelType
 
 	def SingleSVM(self,InputData,ClassificationData,ParameterSet,ListOfFeatures,EarliestDate=None,LatestDate=None,n_jobs=2,scaled = True):
 		'''
@@ -268,7 +319,7 @@ class ModelPrediction(object):
 
 		util.check_for_length_and_nan(Input,Output)
 
-		SVM = SVC(n_jobs=n_jobs,**ParameterSet)
+		SVM = SVC(probability=True,**ParameterSet)
 
 		SVM.fit(Input,Output)
 
@@ -363,17 +414,20 @@ class ModelPrediction(object):
 
 		'''
 		if self.ListOfPredictions is None:
+			self.logging("ValueError: No list of predictions provided in "+self.PathData+"predictions/predictions_scan.p")
 			raise ValueError('No list of predictions provided in '+self.PathData+'predictions/predictions_scan.p')
 
 		if ModelType is None:
-			tmp =self.ListOfPredictions.loc[(self.ListOfPredictions['Labels'] == tickerSymbol) & (self.ListOfPredictions['ModelType'] == ModelType)][['Score','BestParameters','BestParameterValues','StartingDate','ListOfFeatures','ModelType']]
+			tmp =self.ListOfPredictions.loc[(self.ListOfPredictions['Labels'] == tickerSymbol) ][['Score','BestParameters','BestParameterValues','StartingDate','ListOfFeatures','ModelType']]
 			if len(tmp) == 0:
+				self.logging("Stock "+tickerSymbol+": No matching ticker found")
 				print 'No matching ticker found for', tickerSymbol
 				return None
 		
 		else:
-			tmp =self.ListOfPredictions.loc[self.ListOfPredictions['Labels'] == tickerSymbol][['Score','BestParameters','BestParameterValues','StartingDate','ListOfFeatures']]
+			tmp =self.ListOfPredictions.loc[(self.ListOfPredictions['Labels'] == tickerSymbol) & (self.ListOfPredictions['ModelType'] == ModelType)][['Score','BestParameters','BestParameterValues','StartingDate','ListOfFeatures','ModelType']]
 			if len(tmp) == 0:
+				self.logging("Stock "+tickerSymbol+": No matching ticker found for given modeltype: "+ModelType)
 				print 'No matching ticker found for', tickerSymbol, 'with given modeltype: '+ModelType
 				return None
 	
@@ -392,7 +446,7 @@ class ModelPrediction(object):
 
 
 
-class ScanModel(object):
+class ScanModel(Log):
 
 	def __init__(self,ModelType,FileNameListOfCompanies=None,ListOfFeatures='default',GridParameters=None,test_size =0.1,cv_splits=5,n_jobs=-2,PathData=None):
 		'''
@@ -419,6 +473,8 @@ class ScanModel(object):
 
 		'''
 		
+		Log.__init__(self,PathData=PathData)
+
 		self.n_jobs =n_jobs
 		self.test_size = test_size
 		self.cv_splits = cv_splits
@@ -428,6 +484,7 @@ class ScanModel(object):
 		self.EarliestDate = datetime.date(2010,1,1)
 
 		if self.ModelType is None or self.ModelType in ['RFC','SVM'] == False:
+			self.logging("ValueError: Requested model type is not implemented. Choose >>RFC<< or >>SVM<< instead")
 			raise ValueError('Requested model type is not implemented. Choose "RFC" or "SVM" instead')
 
 		if PathData is None:
@@ -443,7 +500,8 @@ class ScanModel(object):
 			if os.path.isfile(self.PathData+'company_lists/'+FileNameListOfCompanies) is True:
 				self.FileNameListOfCompanies = FileNameListOfCompanies
 			else:
-				raise ValueError('List: '+FileNameListOfCompanies + ' does not exists in' +self.PathData + 'company_lists/')
+				self.logging("ValueError: List "+FileNameListOfCompanies +" does not exist in "+self.PathData +"company_lists/")
+				raise ValueError('List: '+FileNameListOfCompanies + ' does not exist in' +self.PathData + 'company_lists/')
 
 		
 		self.ListOfCompanies = pd.read_csv(self.PathData+'company_lists/'+self.FileNameListOfCompanies,index_col='Unnamed: 0')
@@ -530,6 +588,7 @@ class ScanModel(object):
 		for stocklabel in ListOfTickers:
 								
 			if (os.path.isfile(self.PathData+'chart/stocks/'+stocklabel+'.p') == False) or (os.path.isfile(self.PathData +'classification/stocks/'+stocklabel+'.p') == False):
+				self.logging("Stock "+stocklabel+": chart or classification data does not exist")
 				print "Data for stock: ",stocklabel, " does not exist"
 				continue
 
@@ -541,6 +600,7 @@ class ScanModel(object):
 				common_dates =util.find_common_notnull_dates(ChartData,ClassificationData)
 
 				if len(common_dates) < 100:
+					self.logging("Stock "+stocklabel+": not enough data provided for modeling (<100 trainings days)")
 					print "stock",stocklabel,"does not provide enough data for modeling"
 					continue
 				#get rid of all non common rows in both data sets
@@ -606,7 +666,8 @@ class ScanModel(object):
 					prediction_out.at[tmp.index.tolist()[0],'BestParameterValues'] = _out[1].values()
 					prediction_out.at[tmp.index.tolist()[0],'Score'] = _out[0]
 					prediction_out.at[tmp.index.tolist()[0],'Date'] = datetime.datetime.today().date()
-					
+				
+				self.logging("Stock "+stocklabel+": prediction done")
 				print "Label: ",stocklabel, "prediction done"
 			
 			#else:

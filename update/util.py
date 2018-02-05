@@ -49,6 +49,7 @@ def find_common_notnull_dates(A,B):
 
 	'''
 	#find Dates of nonnull entries
+
 	DatesA= A.loc[A.notnull().all(axis=1)]['Date'].tolist()
 	DatesB = B.loc[B.notnull().all(axis=1)]['Date'].tolist()
 
@@ -63,9 +64,9 @@ def check_for_length_and_nan(A,B):
 	Parameters
 	--------------
 
-	A : pandas DataFrame
+	A : pandas DataFrame or nd.array
 
-	B : pandas DataFrame
+	B : pandas DataFrame or nd.array
 
 	Returns
 	-------------
@@ -77,8 +78,19 @@ def check_for_length_and_nan(A,B):
 
 	#double check that  "NaN" values are left over
 
-	if pd.isnull(A).values.any() == True:
-		raise ValueError('InputData contains "NaN" entries')	
-	if pd.isnull(A).values.any() == True:
-		raise ValueError('OutputData contains "NaN" entries')	
+	if isinstance(A,pd.DataFrame) == True and isinstance(B,pd.DataFrame) == True:
 
+		if pd.isnull(A).values.any() == True:
+			raise ValueError('InputData contains "NaN" entries')	
+		if pd.isnull(A).values.any() == True:
+			raise ValueError('OutputData contains "NaN" entries')	
+	elif isinstance(A,np.ndarray) == True and isinstance(B,np.ndarray) == True:
+
+		if np.any(A == np.nan) is True:
+			raise ValueError('InputData contains "NaN" entries')
+		if np.any(B == np.nan) is True:
+			raise ValueError('OutputData contains "NaN" entries')
+
+	else:
+
+		raise ValueError("objects are not of the same type")

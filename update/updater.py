@@ -6,6 +6,8 @@ import os,shutil,sys
 from pandas_datareader._utils import RemoteDataError
 import stockstats
 
+from logger import Log
+
 	# 		#find index with NAN
 	# 		indsInput = InputData.loc[InputData.notnull().all(axis=1)].index.tolist()
 	# 		indsOutput = OutputData.loc[OutputData.notnull().all(axis=1)].index.tolist()
@@ -13,7 +15,7 @@ import stockstats
 	# 		#find intersection betwen both index lists
 	# 		inds_final = list(set(indsInput) & set(indsOutput))
 
-class StockUpdater(object):
+class StockUpdater(Log):
 	"""
 
 	Add description
@@ -39,6 +41,10 @@ class StockUpdater(object):
 							 "MAXxx" = moving maximum of xx days
 							 "MINxx" = moving minimum of xx days
 		'''
+		
+
+		Log.__init__(self,PathData=PathData)
+
 		self.ListOfChartFeatures = ['GD200','GD100','GD50','GD38','BB_20_2','RSI_14','ADX','MACD','MAX20','MAX65','MAX130','MAX260','MIN20','MIN65','MIN130','MIN260']
 
 		'''
@@ -111,6 +117,7 @@ class StockUpdater(object):
 				#if stock has been updated at the same date already
 				
 				if self.UpdateTimeStart ==  self.UpdateTimeEnd:
+					self.logging("Stock "+stocklabel+": UpdateTimeStart is equal to UpdateTimeEnd ")
 					continue
 				try:
 					
@@ -123,19 +130,22 @@ class StockUpdater(object):
 					stock_prize = stock_prize.loc[stock_prize['Date']>self.UpdateTimeStart]
 					
 					if len(stock_prize) == 0:
+						self.logging("Stock "+stocklabel+": no new data available")
 						continue
 					
 					StockValue = pd.concat([StockValue, stock_prize], ignore_index=True)
 
 					shutil.copy(self.PathData+'raw/stocks/'+stocklabel+'.p',self.PathData+'raw/stocks/backup/'+stocklabel+'.p')
 					
-					print "number of rows", len(StockValue), " for label", stocklabel
+					#print "number of rows", len(StockValue), " for label", stocklabel
 					StockValue.reset_index(inplace=True,drop=True)
 					
 					StockValue.to_pickle(self.PathData+'raw/stocks/'+stocklabel+'.p')
 					print "Stock ",stocklabel, " updated"
+					self.logging("Stock "+stocklabel+": successfully updated")
 
 				except RemoteDataError:
+					self.logging("Stock "+stocklabel+": No information for ticker found")
 					print "No information for ticker ", stocklabel
 					continue
 
@@ -152,8 +162,10 @@ class StockUpdater(object):
 					stock_prize.to_pickle(self.PathData+'raw/stocks/'+stocklabel+'.p')
 
 					print "Stock ",stocklabel, " updated"
+					self.logging("Stock "+stocklabel+": successfully updated")
 
 				except RemoteDataError:
+					self.logging("Stock "+stocklabel+": No information for ticker found")
 					print "No information for ticker ", stocklabel
 					continue
 
@@ -176,9 +188,10 @@ class StockUpdater(object):
 				ChartData.dropna(inplace=True)
 
 				ChartData.to_pickle(self.PathData+'chart/stocks/'+stocklabel+'.p')
-
+				self.logging("Stock "+stocklabel+": chart values successfully written")
 				print "chart values for ", stocklabel, " written"
 			else: 
+				self.logging("Stock "+stocklabel+":raw data does not exist")
 				print "raw stock data for stock ",stocklabel, " does not exist"
 				print "try running update_stock_prize() first"
 		print "\nFinished updating chart markers\n\n"
@@ -200,9 +213,10 @@ class StockUpdater(object):
 				classification.dropna(inplace=True)
 
 				classification.to_pickle(self.PathData+'classification/stocks/'+stocklabel+'.p')
-
-				print "chart values for ", stocklabel, " written"
+				self.logging("Stock "+stocklabel+": classification values successfully written")
+				print "classification values for ", stocklabel, " written"
 			else: 
+				self.logging("Stock "+stocklabel+":raw data does not exist")
 				print "raw stock data for stock ",stocklabel, " does not exist"
 				print "try running update_stock_prize() first"
 
@@ -235,9 +249,11 @@ class StockUpdater(object):
 
 				#check if rawData contains any duplicated dates
 				if rawData['Date'].duplicated().any() == True:
+					self.logging("ValueError: Critical!!!! >>rawData<< contains duplicated Dates. Classification output is most probably inaccurate ")
 					raise ValueError('Critical!!!! "rawData" contains duplicated Dates. Classification output is most probably inaccurate')
 			else:
-				raise ValueError('Input path to raw data does not exist')
+				self.logging("ValueError: Input path for raw data does not exist")
+				raise ValueError('Input path for raw data does not exist')
 
 		
 		output = pd.DataFrame()
@@ -264,6 +280,7 @@ class StockUpdater(object):
 				lower,upper = self._return_relative_bollinger_bands(rawData,window_size=_window,k=_k)
 
 				if len(lower) != len(output):
+					self.logging("ValueError: Caution length of BB bands not equal length of dates")
 					raise ValueError('Caution length of BB bands not equal length of dates')
 
 				output['Lower_'+_feature] = pd.Series(lower,index = rawData.index)
@@ -332,6 +349,7 @@ class StockUpdater(object):
 				rawData = pd.read_csv(rawData)
 
 			else:
+				self.logging("ValueError: Input path for raw data does not exist")
 				raise ValueError('Input path to raw data does not exist')
 
 		
@@ -347,6 +365,7 @@ class StockUpdater(object):
 
 		
 		if np.any((np.sort(PrizeThresholds) == PrizeThresholds) == False):
+			self.logging("ValueError: Input parameter PrizeThresholds is not ascendingly sorted")
 			raise ValueError('Input parameter "PrizeThresholds" is not ascendingly sorted')
 
 
