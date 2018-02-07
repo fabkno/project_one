@@ -94,3 +94,52 @@ def check_for_length_and_nan(A,B):
 	else:
 
 		raise ValueError("objects are not of the same type")
+
+def find_str(s, char,return_ind='end'):
+
+	'''
+	finds position of substring in string returns position of last found character 
+
+	Parameters
+	----------------
+
+	s string : string in which to look for substring
+
+	char string : substring 
+
+	return_ind : string (default = 'end' other option is 'start') returns either end or start index of searched char
+
+	Returns
+	----------------
+	index of first character of substring is found
+
+	Example
+	----------------
+
+	s = "Zur Aktie Dialog SemiconductorWKN927200ISINGB0059822006Deutsches SymbolDLGIndizes TecDAX, Prime All Share, Late TecDAX, Technology All Share, TecDAX Kursindex, BX Swiss"
+
+	substring = "Indizes"
+
+	>>> find_str(s,substring)
+
+	>>> 82
+	>>> s[82:] 
+	>>> TecDAX, Prime All Share, Late TecDAX, Technology All Share, TecDAX Kursindex, BX Swiss
+
+	'''
+
+	index = 0
+
+	if char in s:
+		c = char[0]
+		for ch in s:
+			if ch == c:
+				if s[index:index+len(char)] == char:
+					if return_ind == 'end':
+						return index+len(char)+1
+					elif return_ind =='start':
+						return index 
+
+			index += 1
+
+	return -1
