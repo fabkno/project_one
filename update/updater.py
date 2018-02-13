@@ -284,6 +284,11 @@ class StockUpdater(Log):
 
 				output[_feature] = pd.Series(self._return_relative_roll_mean(rawData,np.int(_feature[2:])),index=rawData.index)
 
+			elif _feature[0:5] == 'DOTGD':
+				_window = np.int(_feature[5:])
+				min_ = np.int(_window * 0.9)
+
+				#rolling_mean  = pd.Series.roling(rawData['Close'],window=_window)
 			elif _feature[0:2] == 'BB':
 				_k = np.int(_feature[-1])
 				_window = np.int(_feature[3:[i for i,x in enumerate(_feature) if x=='_'][1]])
@@ -325,6 +330,8 @@ class StockUpdater(Log):
 				min_ = np.int(_window * 0.9)
 				rolling_max = pd.Series.rolling(rawData['Close'],window=_window,min_periods=min_).max().tolist()
 				output[_feature] = (rawData['Close'] - rolling_max)/rolling_max
+
+
 
 			elif _feature[0:3] == 'MIN':
 				_window = np.int(_feature[3:])
@@ -800,3 +807,14 @@ class StockUpdater(Log):
 		out['CCI'+str(window)] = (TP - TP_SMA)/(.015*mean_dev)
 
 		return out
+
+	def _get_average_slope(self,data,window=14,relative=True):
+		
+		if relative == True:			
+			return pd.Series.rolling(data.diff(periods=1),window=window).mean()/data		
+		else:
+			return pd.Series.rolling(data.diff(periods=1),window=window).mean()
+
+	def _get_average_for_crossing_direction(self,data,window=5):
+
+		return pd.Series.rolling(data,window=5).mean()
