@@ -45,7 +45,7 @@ class StockUpdater(Log):
 
 		Log.__init__(self,PathData=PathData)
 
-		self.ListOfChartFeatures = ['GD200','GD100','GD50','GD38','BB_20_2','RSI_7','RSI_14','RSI_25','ADX','MACD','MAX20','MAX65','MAX130','MAX260','MIN20','MIN65','MIN130','MIN260']
+		self.ListOfChartFeatures = ['GD200','GD100','GD50','GD38','BB_20_2','RSI_7','RSI_14','RSI_25','CCI20','ADX','MACD','MAX20','MAX65','MAX130','MAX260','MIN20','MIN65','MIN130','MIN260']
 
 		'''
 		PrizeThresholds : threshold to categorize relative (in percent) stock evolution within N days
@@ -297,9 +297,14 @@ class StockUpdater(Log):
 				output['Lower_'+_feature] = pd.Series(lower,index = rawData.index)
 				output['Upper_'+_feature] = pd.Series(upper,index = rawData.index)
 
+			elif _feature[0:3] == 'CCI':
+				_window = np.int(_feature[3:])
+				_out = self._get_cci(rawData,window=_window)
+				output[_feature] = pd.Series(_out[_feature].values,index=rawData.index)
+				
 			elif _feature[0:3] == 'RSI':
 
-				_window = np.int(_feature[4:])
+				_window = np.int(_feature[3:])
 				#values = tmp.get('rsi_'+str(_window)).values		
 				values = self._get_rsi(rawData,window_size=_window).values
 				output[_feature] = pd.Series(values,index=rawData.index)
@@ -768,4 +773,30 @@ class StockUpdater(Log):
 		out['ADXR'] = self._get_ema(out,window=window_adx,column='ADX'+str(window_adx)+'_'+str(window_dx))
 		return out
 
-    
+	def _get_cci(self,rawData,window=20):
+		'''
+		comute commodity channel index 
+
+		Parameters
+		-------------
+		rawData : pandas DataFrame must include columns 'High', 'Low', 'Close'
+
+		window : int (default 20) window size to compute necessary rolling averages
+
+		Returns
+		-------------
+
+		out : pandas DataFrame
+		'''
+
+		TP = (rawData['Close'] + rawData['High'] + rawData['Low']) / 3.0
+
+		TP_SMA = TP.rolling(min_periods=1,window = window,center=False).mean()
+
+		mean_dev = TP.rolling(min_periods=1, center=False, window=window).apply(lambda x: np.fabs(x - x.mean()).mean())
+
+		out = pd.DataFrame(index=rawData.index)
+
+		out['CCI'+str(window)] = (TP - TP_SMA)/(.015*mean_dev)
+
+		return out
