@@ -45,10 +45,10 @@ class StockUpdater(Log):
 
 		Log.__init__(self,PathData=PathData)
 
-		self.ListOfChartFeatures = ['GD200','GD100','GD50','GD38','BB_20_2','RSI_14','ADX','MACD','MAX20','MAX65','MAX130','MAX260','MIN20','MIN65','MIN130','MIN260']
+		self.ListOfChartFeatures = ['GD200','GD100','GD50','GD38','BB_20_2','RSI_7','RSI_14','RSI_25','ADX','MACD','MAX20','MAX65','MAX130','MAX260','MIN20','MIN65','MIN130','MIN260']
 
 		'''
-		PrizeThresholds : threshold to ategorize relative (in percent) stock evolution within N days
+		PrizeThresholds : threshold to categorize relative (in percent) stock evolution within N days
 
 		'''
 		self.PrizeThresholds=[-5,-2.5,0,2.5,5]
@@ -93,7 +93,7 @@ class StockUpdater(Log):
 		self.update_chart_markers()
 		self.update_stock_classification()
 
-	def update_stock_prizes(self):
+	def update_stock_prizes(self,ListOfTickers =None):
 
 		"""
 		Update stock prizes given in ListOfCompanies using yahoo finance 
@@ -101,6 +101,10 @@ class StockUpdater(Log):
 		If there is data to update the old file is backuped to .../backup/stockTicker.p so the backup is good for one business day
 
 		"""
+
+		if ListOfTickers is None:
+			ListOfTickers = self.ListOfCompanies['Yahoo Ticker']
+
 		print "Start updating stock prizes"
 		print "--------------------------------------\n"
 
@@ -172,14 +176,18 @@ class StockUpdater(Log):
 		print "\nFinished updating stock prizes\n\n"
 
 
-	def update_chart_markers(self):
+	def update_chart_markers(self,ListOfTickers = None):
 		'''	
 		update chart indicators from raw chart data
 		st
 		'''		
+
+		if ListOfTickers is None:
+			ListOfTickers = self.ListOfCompanies['Yahoo Ticker']
+
 		print "Start updating chart markers"
 		print "--------------------------------\n"
-		for stocklabel in self.ListOfCompanies['Yahoo Ticker']:
+		for stocklabel in ListOfTickers:
 			
 			#check if raw stock data exists
 			if os.path.isfile(self.PathData + 'raw/stocks/'+stocklabel+'.p'):
@@ -196,12 +204,15 @@ class StockUpdater(Log):
 				print "try running update_stock_prize() first"
 		print "\nFinished updating chart markers\n\n"
 	
-	def update_stock_classification(self):
+	def update_stock_classification(self,ListOfTickers = None):
 
 		'''
 		update stock classification 
 
 		'''
+		if ListOfTickers is None:
+			ListOfTickers = self.ListOfCompanies['Yahoo Ticker']
+
 		print "Start updating stock classification"
 		print "--------------------------------------\n"
 		for stocklabel in self.ListOfCompanies['Yahoo Ticker']:
@@ -289,13 +300,19 @@ class StockUpdater(Log):
 			elif _feature[0:3] == 'RSI':
 
 				_window = np.int(_feature[4:])
-				values = tmp.get('rsi_'+str(_window)).values		
+				#values = tmp.get('rsi_'+str(_window)).values		
+				values = self._get_rsi(rawData,window_size=_window).values
 				output[_feature] = pd.Series(values,index=rawData.index)
+
 			elif _feature[0:3] == 'ADX':
-				output[_feature] = pd.Series(tmp.get('adx').values,index=rawData.index)
+				_out = self._get_adx(rawData,window_dx=14,window_adx=6)	
+				output[_feature] = pd.Series(_out['ADX6_14'].values,index=rawData.index)
+				#output[_feature] = pd.Series(tmp.get('adx').values,index=rawData.index)
 
 			elif _feature[0:4] == 'MACD':
-				output[_feature] = pd.Series(tmp.get('macd').values,index=rawData.index)
+				_out = self._get_MACD(rawData)
+				output[_feature] = pd.Series(_out['MACDH'].values,index=rawData.index)
+				#output[_feature] = pd.Series(tmp.get('macd').values,index=rawData.index)
 
 			elif _feature[0:3] == 'MAX':
 				_window = np.int(_feature[3:])
@@ -442,3 +459,313 @@ class StockUpdater(Log):
 		lower = (rawData['Close'] -lower)/lower
 
 		return np.array(lower),np.array(upper)
+
+
+	def _get_smma(self,rawData,window_size,column='Close'):
+		'''
+		compute smoothed exponentially weighted average
+
+		Parameters
+		--------------
+		rawData : pandas data frame must include closing prize
+
+		window_size : int window for weigthed average
+
+		Returns
+		--------------
+		pandas DataFrame 
+
+		'''
+		return rawData[column].ewm(ignore_na=False,alpha=1./window_size,min_periods=0,adjust=True).mean()
+
+	def _get_rsi(self,rawData,window_size=14):
+		'''
+		compute relative strength index for given window_size 
+
+		Parameters
+		--------------
+		rawData : pandas data frame must include closing prize
+
+		window_size : int number of days
+
+		column : string (default ='Close'), idicates column for average computation
+
+		Returns
+		--------------
+		pandas DataFrame 
+
+		'''
+		diff = rawData['Close'].diff(periods=1)
+		dpm = pd.DataFrame()
+		dnn = pd.DataFrame()
+		dpm['Close'] = (diff+diff.abs())/2.
+		dnn['Close'] = (-diff+diff.abs())/2.
+
+		dpm_smma = self._get_smma(dpm,window_size=window_size)
+		dnn_smma = self._get_smma(dnn,window_size=window_size)
+
+		return 100. - 100./(1. + dpm_smma/dnn_smma)
+
+
+	def _get_ema(self,rawData,window,column='Close'):
+
+		'''
+		compute exponentially weighted moving average
+
+		Parameters
+		-------------
+		rawData : pandas DataFrame
+
+		window_size : int window for moving average
+
+		column : string (default ='Close'), idicates column for average computation
+
+		Returns
+		-------------
+		pandas DataFrame
+
+		'''
+		return rawData[column].ewm(ignore_na=False,span=window,min_periods=0,adjust=True).mean()
+
+	def _get_MACD(self,rawData,fast_window = 12,slow_window=26,signal_window=9):
+
+		'''
+		computation of moving average convergence/divergence
+
+		Parameters
+		---------------
+
+		rawData : pandas DataFrame must include 'Close' prize
+
+		fast_window : int (default 12),fast window for exp. weighted moving average of closing prize
+
+		slow_window : int (default 26), slow window for exp. weighted moving average of closing prize 
+
+		signal_window : int (default 9), window for exp. weighted moving average of MACD 
+
+		Returns
+		---------------
+		out : pandas DataFrame contains columns 'MACD' = absolute MACD
+												'MACDS' = signal line of MACD
+												'MACDH' = relative (corrected) MACD
+
+		'''
+		fast = self._get_ema(rawData,window=fast_window)
+		slow = self._get_ema(rawData,window=slow_window)
+
+		out = pd.DataFrame(index=rawData.index)
+		out['MACD'] = fast - slow
+		out['MACDS'] = self._get_ema(out,window=signal_window,column='MACD')
+		out['MACDH'] = (out['MACD'] - out['MACDS'])
+
+		return out
+	def _get_high_low_delta(self,rawData,windows=1,relative=False):
+		'''
+		get difference between daily high and low values within window range, respectively
+		        
+		Parameters
+		---------------
+
+		rawData : pandas DataFrame must include daily 'High' and 'Low' prize
+
+		windows : int (default 1), window for taking the difference, e.g. window=2 takes the differences between every 2nd day
+
+		relative : bool (default False) whether or not return the relative (or absolute) difference
+
+		Returns
+		----------------
+		    
+		out : pandas DataFrame contains high and low values (relative or absolute)
+
+		'''
+		if 'High' not in rawData.columns:
+			raise ValueError('rawData does not contain column "High"')
+		if 'Low' not in rawData.columns:
+			raise ValueError('rawData does not contain column "Low"')
+
+		out = pd.DataFrame(index=rawData.index)
+		if relative == False:
+			out['High'] = rawData['High'].diff(periods=windows)
+			out['Low'] = rawData['Low'].diff(periods=windows)
+		elif relative == True:
+			out['High rel'] = rawData['High'].diff(periods=windows)/rawData['High']
+			out['Low rel'] = rawData['Low'].diff(periods=windows)/rawData['Low']
+
+		return out
+  
+	def _get_up_down_move(self,rawData,windows=1):
+		'''
+		To do
+
+		Parameters
+		-------------
+		rawData : pandas DataFrame must include daily 'High' and 'Low' prize
+
+		windows : int (default 1) window for getting the respective up and down moves of stock prize
+
+		Returns
+		-------------
+		out : pandas DataFrame contains columns "up move" and "down move" for both moves respectively
+		'''
+		tmp =self._get_high_low_delta(rawData,windows=windows,relative=False)
+
+		out = pd.DataFrame(index=rawData.index)
+		out['up move'] = (tmp['High'] + tmp['High'].abs())/2.
+		out['down move'] = (-tmp['Low'] + tmp['Low'].abs())/2.
+
+		return out
+
+
+	def _get_pdm_ndm(self,rawData,window):
+		'''
+		compute positive and negative directional moving average (negative directional moving accumulation)
+
+		Parameters
+		-------------
+		rawData : pandas DataFrame must include daily 'High' and 'Low' prize
+
+		window : int number of business days for computation of moving average
+
+		Returns
+		-------------
+		out : pandas DataFrame contains columns "pdm" and "ndm" for positve (negative) directional moving average
+
+		'''
+
+		tmp = self._get_up_down_move(rawData)
+
+		out = pd.DataFrame(index=rawData.index)
+		out['PDM'] = np.where(tmp['up move']>tmp['down move'],tmp['up move'],0)
+		out['NDM'] = np.where(tmp['down move']>tmp['up move'],tmp['down move'],0)
+
+		if window>1:
+			out['PDM'] = self._get_ema(out,window=window,column='PDM')
+			out['NDM'] = self._get_ema(out,window=window,column='NDM')
+
+		return out
+	
+	def _get_pdi_and_ndi(self,rawData,window):
+		"""
+		compute positive directional moving index and negative directional moving index
+
+		Parameters
+		-------------
+		rawData : pandas DataFrame must include columns 'High', 'Low', 'Close'
+
+		window : int window size
+
+		Returns
+		-------------   
+		out : pandas DataFrame with columns "PDI" (positive directional index) and "NDI" (negative directional index)
+		
+		"""
+
+		tmp1 = self._get_pdm_ndm(rawData,window=window)
+		tmp2 = self._get_average_true_range(rawData,window=window)
+
+		out = pd.DataFrame(index=rawData.index)
+		out['PDI'+str(window)] = tmp1['PDM']/tmp2['ATR'+str(window)] * 100.
+		out['NDI'+str(window)] = tmp1['NDM']/tmp2['ATR'+str(window)] * 100.
+		return out
+
+
+	def _get_true_range(self,rawData):
+		"""
+		compute true range
+
+		Parameters
+		-------------
+		rawData : pandas DataFrame must include columns 'High', 'Low', 'Close'
+
+		Returns
+		-------------
+		out : pandas DataFrame contains column "true range" 
+		"""
+
+		prev_close = rawData['Close'].shift(periods=1)
+
+		c1 = rawData['High'] - rawData['Low']
+		c2 = np.abs(rawData['High'] - prev_close)
+		c3 = np.abs(rawData['Low'] - prev_close)
+
+		out = pd.DataFrame(index=rawData.index)
+		out['true range'] = np.max((c1,c2,c3),axis=0)
+		return out
+
+	def _get_average_true_range(self,rawData,window=14,relative=False):
+		"""
+		compute average true range (ATR) of stock 
+		https://en.wikipedia.org/wiki/Average_true_range
+
+		Parameters
+		--------------
+		rawData : pandas DataFrame must include columns 'High', 'Low', 'Close'
+
+		window : int window size for smoothed average of true range values
+
+		relative : bool (default False), when true ATR is divided by closing stock prize
+
+		Returns
+		-------------
+		out : pandas DataFrame contains column "ATR"+window
+
+		"""
+
+		trueRange = self._get_true_range(rawData)
+
+		out = pd.DataFrame(index=rawData.index)
+		if relative == False:
+			out['ATR'+str(window)] = self._get_smma(trueRange,window_size=window,column='true range')
+		elif relative == True:
+			out['ATR'+str(window)] = self._get_smma(trueRange,window_size=window,column='true range')/rawData['Close']
+
+		return out
+
+	def _get_directional_movement_index(self,rawData,window):
+		'''
+		compute directional movement index (dx)
+
+		Parameters
+		------------
+		rawData : pandas DataFrame must include columns 'High', 'Low', 'Close'
+
+		window : int window size to compute directional movement index
+
+		Returns
+		------------
+		out : pandas DataFrame 
+
+		'''
+		tmp = self._get_pdi_and_ndi(rawData,window=window)
+
+		out = pd.DataFrame(index=rawData.index)
+		out['DX'+str(window)] = 100*(tmp['PDI'+str(window)] - tmp['NDI'+str(window)]).abs()/(tmp['PDI'+str(window)] + tmp['NDI'+str(window)])
+		return out
+
+
+	def _get_adx(self,rawData,window_adx=6,window_dx = 14):
+		'''
+		compute averaged directional movement index
+
+		Parameters
+		------------
+		rawData : pandas DataFrame must include columns 'High', 'Low', 'Close'
+
+		window_dx : int (default 14) window size to compute directional movement index
+
+		window_adx : int (default 6) window size to compute averaged dx
+
+		Returns
+		-------------
+		out : pandas DataFrame
+
+		'''
+
+		tmp = self._get_directional_movement_index(rawData,window=window_dx)
+
+		out = pd.DataFrame(index=rawData.index)
+		out['ADX'+str(window_adx)+'_'+str(window_dx)] = self._get_ema(tmp,window=window_adx,column='DX'+str(window_dx))
+		out['ADXR'] = self._get_ema(out,window=window_adx,column='ADX'+str(window_adx)+'_'+str(window_dx))
+		return out
+
+    
