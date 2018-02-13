@@ -45,7 +45,7 @@ class StockUpdater(Log):
 
 		Log.__init__(self,PathData=PathData)
 
-		self.ListOfChartFeatures = ['GD200','GD100','GD50','GD38','BB_20_2','RSI_7','RSI_14','RSI_25','CCI20','ADX','MACD','MAX20','MAX65','MAX130','MAX260','MIN20','MIN65','MIN130','MIN260']
+		self.ListOfChartFeatures = ['GD200','GD100','GD50','GD38','BB_20_2','RSI7','RSI14','RSI25','CCI20','ADX','MACD','MAX20','MAX65','MAX130','MAX260','MIN20','MIN65','MIN130','MIN260']
 
 		'''
 		PrizeThresholds : threshold to categorize relative (in percent) stock evolution within N days
@@ -301,7 +301,7 @@ class StockUpdater(Log):
 				_window = np.int(_feature[3:])
 				_out = self._get_cci(rawData,window=_window)
 				output[_feature] = pd.Series(_out[_feature].values,index=rawData.index)
-				
+
 			elif _feature[0:3] == 'RSI':
 
 				_window = np.int(_feature[3:])
