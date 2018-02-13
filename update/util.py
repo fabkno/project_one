@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import requests
 #util functions 
 
 def find_mask(df,ListOfObjects,ListOfColumnNames):
@@ -143,3 +144,33 @@ def find_str(s, char,return_ind='end'):
 			index += 1
 
 	return -1
+
+def URL_online(URL):
+	'''
+	check if given URL or list of URLs is online
+
+	Parameters
+	-------------
+
+	URL either string or list of strings
+
+	Returns
+	-------------
+
+	bool or boolian np.array
+
+	'''
+	if isinstance(URL,str):
+		page = requests.get(URL)
+
+		if page.status_code != 200:
+			return False
+		else:
+			return True
+	else:
+		return_values = np.zeros(len(URL),dtype=bool)
+		for i in range(len(URL)):
+
+			if requests.get(URL[i]).status_code == 200:
+				return_values[i] = True
+		return return_values
