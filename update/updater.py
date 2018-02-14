@@ -473,7 +473,7 @@ class StockUpdater(Log):
 		return np.array(lower),np.array(upper)
 
 
-	def _get_smma(self,rawData,window_size,column='Close'):
+	def _get_smma(self,data,window_size,column='Close'):
 		'''
 		compute smoothed exponentially weighted average
 
@@ -488,7 +488,10 @@ class StockUpdater(Log):
 		pandas DataFrame 
 
 		'''
-		return rawData[column].ewm(ignore_na=False,alpha=1./window_size,min_periods=0,adjust=True).mean()
+		out = pd.DataFrame(index=data.index)
+		out['SMMA'+str(window_size)] = data[column].ewm(ignore_na=False,alpha=1./window_size,min_periods=0,adjust=True).mean()
+
+		return out
 
 	def _get_rsi(self,rawData,window_size=14):
 		'''
@@ -513,13 +516,16 @@ class StockUpdater(Log):
 		dpm['Close'] = (diff+diff.abs())/2.
 		dnn['Close'] = (-diff+diff.abs())/2.
 
-		dpm_smma = self._get_smma(dpm,window_size=window_size)
-		dnn_smma = self._get_smma(dnn,window_size=window_size)
+		dpm_smma = self._get_smma(dpm,window_size=window_size)['SMMA'+str(window_size)]
+		dnn_smma = self._get_smma(dnn,window_size=window_size)['SMMA'+str(window_size)]
 
-		return 100. - 100./(1. + dpm_smma/dnn_smma)
+		out = pd.DataFrame(index=rawData.index)
+		out['RSI'+str(window_size)] = 100. - 100./(1. + dpm_smma/dnn_smma)
+
+		return out
 
 
-	def _get_ema(self,rawData,window,column='Close'):
+	def _get_ema(self,data,window,column='Close'):
 
 		'''
 		compute exponentially weighted moving average
@@ -537,7 +543,10 @@ class StockUpdater(Log):
 		pandas DataFrame
 
 		'''
-		return rawData[column].ewm(ignore_na=False,span=window,min_periods=0,adjust=True).mean()
+		out = pd.DataFrame(index=data.index)
+		out['EMA'+str(window)] = data[column].ewm(ignore_na=False,span=window,min_periods=0,adjust=True).mean()
+
+		return out
 
 	def _get_MACD(self,rawData,fast_window = 12,slow_window=26,signal_window=9):
 
@@ -562,12 +571,12 @@ class StockUpdater(Log):
 												'MACDH' = relative (corrected) MACD
 
 		'''
-		fast = self._get_ema(rawData,window=fast_window)
-		slow = self._get_ema(rawData,window=slow_window)
+		fast = self._get_ema(rawData,window=fast_window)['EMA'+str(fast_window)]
+		slow = self._get_ema(rawData,window=slow_window)['EMA'+str(slow_window)]
 
 		out = pd.DataFrame(index=rawData.index)
 		out['MACD'] = fast - slow
-		out['MACDS'] = self._get_ema(out,window=signal_window,column='MACD')
+		out['MACDS'] = self._get_ema(out,window=signal_window,column='MACD')['EMA'+str(signal_window)]
 		out['MACDH'] = (out['MACD'] - out['MACDS'])
 
 		return out
@@ -651,8 +660,8 @@ class StockUpdater(Log):
 		out['NDM'] = np.where(tmp['down move']>tmp['up move'],tmp['down move'],0)
 
 		if window>1:
-			out['PDM'] = self._get_ema(out,window=window,column='PDM')
-			out['NDM'] = self._get_ema(out,window=window,column='NDM')
+			out['PDM'] = self._get_ema(out,window=window,column='PDM')['EMA'+str(window)]
+			out['NDM'] = self._get_ema(out,window=window,column='NDM')['EMA'+str(window)]
 
 		return out
 	
@@ -727,9 +736,9 @@ class StockUpdater(Log):
 
 		out = pd.DataFrame(index=rawData.index)
 		if relative == False:
-			out['ATR'+str(window)] = self._get_smma(trueRange,window_size=window,column='true range')
+			out['ATR'+str(window)] = self._get_smma(trueRange,window_size=window,column='true range')['SMMA'+str(window)]
 		elif relative == True:
-			out['ATR'+str(window)] = self._get_smma(trueRange,window_size=window,column='true range')/rawData['Close']
+			out['ATR'+str(window)] = self._get_smma(trueRange,window_size=window,column='true range')['SMMA'+str(window)]/rawData['Close']
 
 		return out
 
@@ -754,6 +763,20 @@ class StockUpdater(Log):
 		out['DX'+str(window)] = 100*(tmp['PDI'+str(window)] - tmp['NDI'+str(window)]).abs()/(tmp['PDI'+str(window)] + tmp['NDI'+str(window)])
 		return out
 
+	def _get_raw_stochastic_value(self,rawData,window):
+		'''
+		compute raw stochastic value for given window
+
+		'''
+		low_min = rawData['Low'].rolling(min_periods=1,window=window,center=False).min()
+		high_max = rawData['High'].rolling(min_periods=1,window=window,center=False).max()
+
+		out = pd.DataFrame(index=rawData.index)
+		out['RSV'+str(window)] = (rawData['Close'] - low_min) /(high_max - low_min) * 100
+		#out['RSV'+str(window)].fillna(0).astype('float64')
+
+		return out
+
 
 	def _get_adx(self,rawData,window_adx=6,window_dx = 14):
 		'''
@@ -776,8 +799,8 @@ class StockUpdater(Log):
 		tmp = self._get_directional_movement_index(rawData,window=window_dx)
 
 		out = pd.DataFrame(index=rawData.index)
-		out['ADX'+str(window_adx)+'_'+str(window_dx)] = self._get_ema(tmp,window=window_adx,column='DX'+str(window_dx))
-		out['ADXR'] = self._get_ema(out,window=window_adx,column='ADX'+str(window_adx)+'_'+str(window_dx))
+		out['ADX'+str(window_adx)+'_'+str(window_dx)] = self._get_ema(tmp,window=window_adx,column='DX'+str(window_dx))['EMA'+str(window_adx)]
+		out['ADXR'] = self._get_ema(out,window=window_adx,column='ADX'+str(window_adx)+'_'+str(window_dx))['EMA'+str(window_adx)]
 		return out
 
 	def _get_cci(self,rawData,window=20):
@@ -818,3 +841,102 @@ class StockUpdater(Log):
 	def _get_average_for_crossing_direction(self,data,window=5):
 
 		return pd.Series.rolling(data,window=5).mean()
+
+
+	def _get_trix(self,data,window_trix=15,window_trix_ema = 9,column='Close'):
+		'''
+		compute triple expanentially weighted graph of data
+
+		Parameters
+		----------------
+		data : pandas DataFrame 
+
+		window_trix : int (default 15) window for doing the triple average
+
+		window_trix_ema : int (default 9) window for getting signal line of trix
+
+		column : string (default 'Close') column of data for trix is computed
+
+		Returns
+		----------------
+		out : pandas DataFrame with columns 'TRIX'+window_trix , 'TRIX'+window_trix+_'EMA'+window_ema corresponds to signal line, 'TRIXH', difference between trix and its signal line
+	
+
+		'''
+		single = self._get_ema(rawData=data,window=window_trix,column=column)
+		double = self._get_ema(rawData=single,window=window_trix,column='EMA'+str(window_trix))
+		triple = self._get_ema(rawData=double,window=window_trix,column='EMA'+str(window_trix))
+
+		prev_triple = triple.shift(periods=1)
+
+		out = pd.DataFrame(index=data.index)
+		out['TRIX'+str(window_trix)] = (triple - prev_triple) * 100. /prev_triple
+		out['TRIX'+str(window_trix)+'_EMA'+str(window_trix_ema)] = self._get_ema(out,window=window_trix_ema,column='TRIX'+str(window_trix))
+		out['TRIXH'] = out['TRIX'+str(window_trix)] - out['TRIX'+str(window_trix)+'_EMA'+str(window_trix_ema)]
+
+		return out
+
+	def _get_williams(self,rawData,window=14):
+		'''
+		compute william momentum indicator
+
+		Parameters
+		------------
+		rawData : pandas DataFrame
+
+		window : int (default 14) window size for computing rolling min/max
+		'''
+		out = pd.DataFrame(index=rawData.index)
+		lower = rawData['Low'].rolling(min_periods=1,window=window,center=False).min()
+		upper = rawData['High'].rolling(min_periods=1,window=window,center=False).max()
+
+		out['williams'+str(window)] = (upper - rawData['Close'])/(upper-lower) * 100.
+
+		return out
+
+
+
+	def _get_kd(self,data,column):
+		'''
+		compute ,..
+		'''
+		p0 = 2./3.
+		p1 = 1./3.
+		k = 50.
+		for i in p1 * data[column].values:
+			k = p0 * k +i
+			yield k
+    
+	def _get_kdjk(self,rawData,window):
+		'''
+		to do
+		'''
+
+		tmp = self._get_raw_stochastic_value(rawData,window=window)
+		out = pd.DataFrame(index=tmp.index)
+		test = np.array(list(self._get_kd(tmp,column='RSV'+str(window))))
+		out['KDJK'+str(window)] =test
+
+		return out
+
+	def _get_kdjd(self,rawData,window):
+		'''
+		to do
+		'''
+		tmp = self._get_kdjk(rawData,window)
+		out = pd.DataFrame(index=tmp.index)
+		out['KDJK'+str(window)] = tmp['KDJK'+str(window)]
+		out['KDJD'+str(window)] = list(self._get_kd(tmp,column='KDJK'+str(window)))
+
+		return out
+
+	def _get_kdjj(self,rawData,window):
+		'''
+		compute stochastic oscillator
+		'''
+		tmp = self._get_kdjd(rawData,window)
+		out = pd.DataFrame(index=tmp.index)
+		out['KDJK'+str(window)] = tmp['KDJK'+str(window)]
+		out['KDJD'+str(window)] = tmp['KDJD'+str(window)]
+		out['KDJJ'+str(window)] = 3. *  out['KDJK'+str(window)] - 2.* out['KDJD'+str(window)]
+		return out
