@@ -45,7 +45,7 @@ class StockUpdater(Log):
 
 		Log.__init__(self,PathData=PathData)
 
-		self.ListOfChartFeatures = ['GD200','GD100','GD50','GD38','BB_20_2','RSI7','RSI14','RSI25','CCI20','ADX','MACD','MAX20','MAX65','MAX130','MAX260','MIN20','MIN65','MIN130','MIN260']
+		self.ListOfChartFeatures = ['GD200','GD100','GD50','GD38','BB_20_2','RSI7','RSI14','RSI25','WR14','CCI20','ADX','MACD','MAX20','MAX65','MAX130','MAX260','MIN20','MIN65','MIN130','MIN260']
 
 		'''
 		PrizeThresholds : threshold to categorize relative (in percent) stock evolution within N days
@@ -275,7 +275,7 @@ class StockUpdater(Log):
 
 		###change eventually by own implementation
 
-		tmp = stockstats.StockDataFrame.retype(rawData.copy(deep=True))
+		#tmp = stockstats.StockDataFrame.retype(rawData.copy(deep=True))
 
 
 		for _feature in ListOfChartFeatures:
@@ -307,6 +307,12 @@ class StockUpdater(Log):
 				_out = self._get_cci(rawData,window=_window)
 				output[_feature] = pd.Series(_out[_feature].values,index=rawData.index)
 
+			elif _feature[0:2] == 'WR':
+				_window = np.int(_feature[2:])
+				_out = self._get_williams(rawData,window=_window)
+				output[_feature] = _out['WR'+str(_window)]
+				output[_feature+'X'] = self._get_average_for_crossing_direction(_out['WR'+str(_window)])
+
 			elif _feature[0:3] == 'RSI':
 
 				_window = np.int(_feature[3:])
@@ -321,7 +327,9 @@ class StockUpdater(Log):
 
 			elif _feature[0:4] == 'MACD':
 				_out = self._get_MACD(rawData)
-				output[_feature] = pd.Series(_out['MACDH'].values,index=rawData.index)
+				output[_feature] = _out['MACDH']
+				output['MACDHX'] = self._get_average_for_crossing_direction(_out['MACDH'])
+				
 				#output[_feature] = pd.Series(tmp.get('macd').values,index=rawData.index)
 
 			elif _feature[0:3] == 'MAX':
@@ -880,6 +888,10 @@ class StockUpdater(Log):
 		'''
 		compute william momentum indicator
 
+		optional try window = 125
+
+		interpretation : crossing, 
+
 		Parameters
 		------------
 		rawData : pandas DataFrame
@@ -890,7 +902,7 @@ class StockUpdater(Log):
 		lower = rawData['Low'].rolling(min_periods=1,window=window,center=False).min()
 		upper = rawData['High'].rolling(min_periods=1,window=window,center=False).max()
 
-		out['williams'+str(window)] = (upper - rawData['Close'])/(upper-lower) * 100.
+		out['WR'+str(window)] = (upper - rawData['Close'])/(upper-lower) * 100.
 
 		return out
 
@@ -939,4 +951,51 @@ class StockUpdater(Log):
 		out['KDJK'+str(window)] = tmp['KDJK'+str(window)]
 		out['KDJD'+str(window)] = tmp['KDJD'+str(window)]
 		out['KDJJ'+str(window)] = 3. *  out['KDJK'+str(window)] - 2.* out['KDJD'+str(window)]
+		return out
+
+	def _get_volume_ratio(self,rawData,window=26):
+		'''
+		compute Volatility Volume Ratio
+
+		'''
+		out = pd.DataFrame(index=rawData.index)
+
+		change = rawData['Close'].pct_change() * 100
+		out['av'] = np.where(change>0,rawData['Volume'],0)
+		out['avs'] = out['av'].rolling(min_periods=1,window=window,center=False).sum() 
+
+		out['bv'] = np.where(change<0,rawData['Volume'],0)
+		out['bvs'] = out['bv'].rolling(min_periods=1,window=window,center=False).sum() 
+
+		out['cv'] = np.where(change==0,rawData['Volume'],0)
+		out['cvs'] = out['cv'].rolling(min_periods=1,window=window,center=False).sum() 
+
+		out['VR'+str(window)] = (out['avs'] + out['cvs']/2.) / ( out['bvs'] + out['cvs']/2.) *100.
+
+		del out['av']
+		del out['bv']
+		del out['cv']
+		del out['avs']
+		del out['bvs']
+		del out['cvs']
+		return out
+
+	def _get_PVO(self,rawData,window_vol1 = 12, window_vol2 = 26, window_signal = 9):
+
+		'''
+		comute percentage volume oscillator (PVO)
+		http://stockcharts.com/school/doku.php?id=chart_school:technical_indicators:percentage_volume_oscillator_pvo
+		
+		default options, window 1 ema volume  = 12 , window 2 ema volume = 26, window ema signal line = 9
+
+		interpretation: amplitude, crossing signal line, i.e., positive/negative of PVOH
+		'''
+
+		out = pd.DataFrame(index=rawData.index)
+		tmp = self._get_ema(rawData,window=window_vol2,column='Volume')
+
+		out['PVO'] = (self._get_ema(rawData,window=window_vol1,column='Volume')['EMA'+str(window_vol1)] - tmp['EMA'+str(window_vol2)])/tmp['EMA'+str(window_vol2)] * 100.
+		out['PVOS']= self._get_ema(out,window=window_signal,column='PVO')['EMA'+str(window_signal)]
+		out['PVOH'] = out['PVO'] - out['PVOS']
+
 		return out
