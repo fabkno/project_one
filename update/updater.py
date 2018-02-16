@@ -281,31 +281,41 @@ class StockUpdater(Log):
 		for _feature in ListOfChartFeatures:
 			
 			if _feature[0:2] == 'GD':	
-
-				output[_feature] = pd.Series(self._return_relative_roll_mean(rawData,np.int(_feature[2:])),index=rawData.index)
-
-			elif _feature[0:5] == 'DOTGD':
-				_window = np.int(_feature[5:])
-				min_ = np.int(_window * 0.9)
+				out = self._return_relative_roll_mean(rawData,window_size=np.int(_feature[2:]),column='Close')
+				output[_feature] = out['SMA'+str(_feature[2:])]
+				output[_feature+'X'] = self._get_average_for_crossing_direction(out['SMA'+str(_feature[2:])])
+			
+			#evtl. do slope of GD
+			#elif _feature[0:5] == 'DOTGD':
+			#	_window = np.int(_feature[5:])
+			#	min_ = np.int(_window * 0.9)
 
 				#rolling_mean  = pd.Series.roling(rawData['Close'],window=_window)
 			elif _feature[0:2] == 'BB':
 				_k = np.int(_feature[-1])
 				_window = np.int(_feature[3:[i for i,x in enumerate(_feature) if x=='_'][1]])
 
-				lower,upper = self._return_relative_bollinger_bands(rawData,window_size=_window,k=_k)
+				_out = self._return_relative_bollinger_bands(rawData,window_size=_window,k=_k)
 
-				if len(lower) != len(output):
-					self.logging("ValueError: Caution length of BB bands not equal length of dates")
-					raise ValueError('Caution length of BB bands not equal length of dates')
+				#if len(lower) != len(output):
+				#	self.logging("ValueError: Caution length of BB bands not equal length of dates")
+				#	raise ValueError('Caution length of BB bands not equal length of dates')
 
-				output['Lower_'+_feature] = pd.Series(lower,index = rawData.index)
-				output['Upper_'+_feature] = pd.Series(upper,index = rawData.index)
+				output['Lower_'+_feature] = _out['lower']
+				output['Upper_'+_feature] = _out['upper']
+				output['Middle_'+_feature] = _out['middle']
+
+				#output['LowerX_'+_feature] = self._get_average_for_crossing_direction(_out['lower'],window = 3)
+				#output['UpperX_'+_feature] = self._get_average_for_crossing_direction(_out['upper'],window = 3)
+				#output['MiddleX_'+_feature] = self._get_average_for_crossing_direction(_out['middle'],window = 3)
+
 
 			elif _feature[0:3] == 'CCI':
 				_window = np.int(_feature[3:])
 				_out = self._get_cci(rawData,window=_window)
-				output[_feature] = pd.Series(_out[_feature].values,index=rawData.index)
+				output[_feature] = _out['CCI'+str(_window)]
+				output[_feature+'X'] = self._get_average_for_crossing_direction(_out['CCI'+str(_window)])
+
 
 			elif _feature[0:2] == 'WR':
 				_window = np.int(_feature[2:])
@@ -317,17 +327,24 @@ class StockUpdater(Log):
 
 				_window = np.int(_feature[3:])
 				#values = tmp.get('rsi_'+str(_window)).values		
-				values = self._get_rsi(rawData,window_size=_window).values
-				output[_feature] = pd.Series(values,index=rawData.index)
+				_out = self._get_rsi(rawData,window_size=_window)
+				output[_feature] =_out['RSI'+str(_window)]
+				output[_feature+'X'] = self._get_average_for_crossing_direction(_out['RSI'+str(_window)])
 
 			elif _feature[0:3] == 'ADX':
-				_out = self._get_adx(rawData,window_dx=14,window_adx=6)	
-				output[_feature] = pd.Series(_out['ADX6_14'].values,index=rawData.index)
+				_out = self._get_adx(rawData,window_dx=14,window_adx=14)	
+				output[_feature] =_out['ADX14_14']
+				#_out2 = self._get
+
 				#output[_feature] = pd.Series(tmp.get('adx').values,index=rawData.index)
 
 			elif _feature[0:4] == 'MACD':
 				_out = self._get_MACD(rawData)
-				output[_feature] = _out['MACDH']
+
+				output[_feature] = _out['MACD']
+				output[_feature+'X'] = self._get_average_for_crossing_direction(_out['MACD'])
+
+				output[_feature+'H'] = _out['MACDH']
 				output['MACDHX'] = self._get_average_for_crossing_direction(_out['MACDH'])
 				
 				#output[_feature] = pd.Series(tmp.get('macd').values,index=rawData.index)
@@ -429,7 +446,7 @@ class StockUpdater(Log):
 
 
 
-	def _return_relative_roll_mean(self,raw_data,window_size):
+	def _return_relative_roll_mean(self,rawData,window_size,column='Close'):
 
 		'''
 		compute and return relative prize difference w.r.t. rolling mean of given window size
@@ -437,9 +454,12 @@ class StockUpdater(Log):
 		'''
 		min_ = np.int(window_size * 0.9)
 
-		rolling_mean = pd.Series.rolling(raw_data['Close'],window=window_size,min_periods=min_).mean().tolist()
-
-		return (raw_data['Close'] - rolling_mean)/rolling_mean
+		out = pd.DataFrame(index=rawData.index)
+		rolling_mean = rawData[column].rolling(window=window_size,min_periods=min_).mean()
+		#rolling_mean = pd.Series.rolling(raw_data['Close'],window=window_size,min_periods=min_).mean()
+		#return (raw_data['Close'] - rolling_mean)/rolling_mean
+		out['SMA'+str(window_size)] = (rawData[column] - rolling_mean)/rolling_mean
+		return out
 
 	
 	def _return_relative_bollinger_bands(self,rawData,window_size=20,k=2):
@@ -457,9 +477,13 @@ class StockUpdater(Log):
 
 		Returns
 		--------------
-		upper : np.ndarray relative distance to upper band
+		upper : relative distance to upper band
 		
-		lower : np.ndarray relative distance to lower band
+		middle : relative distance to middle band
+
+		lower : relative distance to lower band
+
+		interpretation: amplitude, crossing lower, upper, middle, W and M pattern 
 
 		Example:
 		-------------
@@ -478,7 +502,12 @@ class StockUpdater(Log):
 		lower = rolling_mean - k*rolling_std
 		lower = (rawData['Close'] -lower)/lower
 
-		return np.array(lower),np.array(upper)
+		out = pd.DataFrame(index=rawData.index)
+		out['upper'] = upper
+		out['middle'] = (rawData['Close'] - rolling_mean)/rolling_mean
+		out['lower'] = lower
+
+		return out
 
 
 	def _get_smma(self,data,window_size,column='Close'):
@@ -516,6 +545,10 @@ class StockUpdater(Log):
 		Returns
 		--------------
 		pandas DataFrame 
+
+		Interpretation
+		-------------------
+		amplitude, crossing, divergence 
 
 		'''
 		diff = rawData['Close'].diff(periods=1)
@@ -560,6 +593,8 @@ class StockUpdater(Log):
 
 		'''
 		computation of moving average convergence/divergence
+
+		interpretation: MACD amplitude, crossing, MACDH amplitude crossing, MACD divergence, i.e., reverse trends of local to global minimum/maximum between MACD and Close
 
 		Parameters
 		---------------
@@ -825,6 +860,11 @@ class StockUpdater(Log):
 		-------------
 
 		out : pandas DataFrame
+
+		Interpretation
+		------------------
+
+		amplitude, crossing
 		'''
 
 		TP = (rawData['Close'] + rawData['High'] + rawData['Low']) / 3.0
