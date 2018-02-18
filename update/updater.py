@@ -5,7 +5,7 @@ import datetime
 import os,shutil,sys
 from pandas_datareader._utils import RemoteDataError
 import stockstats
-
+import chart_tools as ct
 from logger import Log
 
 	# 		#find index with NAN
@@ -267,10 +267,10 @@ class StockUpdater(Log):
 				raise ValueError('Input path for raw data does not exist')
 
 		
-		output = pd.DataFrame()
-		output['Date'] = pd.Series(rawData['Date'],index = rawData.index)
-		output['Close'] = pd.Series(rawData['Close'],index=rawData.index)
-		output['Volume'] = pd.Series(rawData['Volume'],index=rawData.index)
+		output = pd.DataFrame(index=rawData.index)
+		output['Date'] = rawData['Date']
+		output['Close'] = rawData['Close']
+		output['Volume'] = rawData['Volume']
 
 
 		###change eventually by own implementation
@@ -281,9 +281,9 @@ class StockUpdater(Log):
 		for _feature in ListOfChartFeatures:
 			
 			if _feature[0:2] == 'GD':	
-				out = self._return_relative_roll_mean(rawData,window_size=np.int(_feature[2:]),column='Close')
+				out = ct.rolling_mean(rawData,window_size=np.int(_feature[2:]),column='Close')
 				output[_feature] = out['SMA'+str(_feature[2:])]
-				output[_feature+'X'] = self._get_average_for_crossing_direction(out['SMA'+str(_feature[2:])])
+				output[_feature+'X'] =ct.get_average_for_crossing_direction(out['SMA'+str(_feature[2:])])
 			
 			#evtl. do slope of GD
 			#elif _feature[0:5] == 'DOTGD':
@@ -295,7 +295,7 @@ class StockUpdater(Log):
 				_k = np.int(_feature[-1])
 				_window = np.int(_feature[3:[i for i,x in enumerate(_feature) if x=='_'][1]])
 
-				_out = self._return_relative_bollinger_bands(rawData,window_size=_window,k=_k)
+				_out = ct.get_bollinger_bands(rawData,window_size=_window,k=_k,relative=True)
 
 				#if len(lower) != len(output):
 				#	self.logging("ValueError: Caution length of BB bands not equal length of dates")
@@ -312,40 +312,46 @@ class StockUpdater(Log):
 
 			elif _feature[0:3] == 'CCI':
 				_window = np.int(_feature[3:])
-				_out = self._get_cci(rawData,window=_window)
+				_out = ct.get_cci(rawData,window=_window)
 				output[_feature] = _out['CCI'+str(_window)]
-				output[_feature+'X'] = self._get_average_for_crossing_direction(_out['CCI'+str(_window)])
+				output[_feature+'X'] = ct.get_average_for_crossing_direction(_out['CCI'+str(_window)])
 
 
 			elif _feature[0:2] == 'WR':
 				_window = np.int(_feature[2:])
-				_out = self._get_williams(rawData,window=_window)
+				_out = ct.get_williams(rawData,window=_window)
 				output[_feature] = _out['WR'+str(_window)]
-				output[_feature+'X'] = self._get_average_for_crossing_direction(_out['WR'+str(_window)])
+				output[_feature+'X'] = ct.get_average_for_crossing_direction(_out['WR'+str(_window)])
 
 			elif _feature[0:3] == 'RSI':
 
 				_window = np.int(_feature[3:])
 				#values = tmp.get('rsi_'+str(_window)).values		
-				_out = self._get_rsi(rawData,window_size=_window)
+				_out = ct.get_rsi(rawData,window_size=_window)
 				output[_feature] =_out['RSI'+str(_window)]
-				output[_feature+'X'] = self._get_average_for_crossing_direction(_out['RSI'+str(_window)])
+				output[_feature+'X'] = ct.get_average_for_crossing_direction(_out['RSI'+str(_window)])
 
 			elif _feature[0:3] == 'ADX':
-				_out = self._get_adx(rawData,window_dx=14,window_adx=14)	
-				output[_feature] =_out['ADX14_14']
+				_out = ct.get_adx(rawData,window_dx=14,window_adx=14)	
+				_out2 = ct.get_pdi_and_ndi(rawData,window=14,smooth='Wilder')
+
+				output['PDI14R'] =_out['ADX14'] - _out2['PDI14']
+				output['NDI14R'] =_out['ADX14'] - _out2['NDI14']
+
+				output['PDI14RX'] = ct.get_average_for_crossing_direction(output['PDI14R'],window=2)
+				output['NDI14RX'] = ct.get_average_for_crossing_direction(output['NDI14R'],window=2)
 				#_out2 = self._get
 
 				#output[_feature] = pd.Series(tmp.get('adx').values,index=rawData.index)
 
 			elif _feature[0:4] == 'MACD':
-				_out = self._get_MACD(rawData)
+				_out = ct.get_MACD(rawData)
 
 				output[_feature] = _out['MACD']
-				output[_feature+'X'] = self._get_average_for_crossing_direction(_out['MACD'])
+				output[_feature+'X'] = ct.get_average_for_crossing_direction(_out['MACD'])
 
 				output[_feature+'H'] = _out['MACDH']
-				output['MACDHX'] = self._get_average_for_crossing_direction(_out['MACDH'])
+				output['MACDHX'] = ct.get_average_for_crossing_direction(_out['MACDH'])
 				
 				#output[_feature] = pd.Series(tmp.get('macd').values,index=rawData.index)
 
@@ -879,16 +885,7 @@ class StockUpdater(Log):
 
 		return out
 
-	def _get_average_slope(self,data,window=14,relative=True):
-		
-		if relative == True:			
-			return pd.Series.rolling(data.diff(periods=1),window=window).mean()/data		
-		else:
-			return pd.Series.rolling(data.diff(periods=1),window=window).mean()
 
-	def _get_average_for_crossing_direction(self,data,window=5):
-
-		return pd.Series.rolling(data,window=5).mean()
 
 
 	def _get_trix(self,data,window_trix=15,window_trix_ema = 9,column='Close'):
