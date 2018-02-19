@@ -284,9 +284,9 @@ def get_ema(data,window,column='Close'):
 def get_average_slope(data,window=14,relative=True):
 		
 		if relative == True:			
-			return pd.Series.rolling(data.diff(periods=1),window=window).mean()/data		
+			return data.diff(periods=1).rolling(window=window).mean()/data
 		else:
-			return pd.Series.rolling(data.diff(periods=1),window=window).mean()
+			return data.diff(periods=1).rolling(window=window).mean()
 
 def get_average_for_crossing_direction(data,window=5):
 
@@ -467,7 +467,7 @@ def get_PVO(rawData,window_vol1 = 12, window_vol2 = 26, window_signal = 9):
 	'''
 
 	out = pd.DataFrame(index=rawData.index)
-	tmp = self._get_ema(rawData,window=window_vol2,column='Volume')
+	tmp = get_ema(rawData,window=window_vol2,column='Volume')
 
 	out['PVO'] = (get_ema(rawData,window=window_vol1,column='Volume')['EMA'+str(window_vol1)] - tmp['EMA'+str(window_vol2)])/tmp['EMA'+str(window_vol2)] * 100.
 	out['PVOS']= get_ema(out,window=window_signal,column='PVO')['EMA'+str(window_signal)]
@@ -494,3 +494,33 @@ def rolling_mean(rawData,window_size,column='Close',relative=False):
 	elif relative == False:
 		out['SMA'+str(window_size)] =rolling_mean
 		return out
+
+def get_trix(data,window_trix=15,window_trix_ema = 9,column='Close'):
+	single = get_ema(data=data,window=window_trix,column=column)
+	double = get_ema(data=single,window=window_trix,column='EMA'+str(window_trix))
+	triple = get_ema(data=double,window=window_trix,column='EMA'+str(window_trix))
+
+	prev_triple = triple.shift(periods=1)
+
+	out = pd.DataFrame(index=data.index)
+	out['TRIX'] = (triple - prev_triple) * 100. /prev_triple
+	out['TRIXS'] = get_ema(out,window=window_trix_ema,column='TRIX')
+	out['TRIXH'] = out['TRIX'] - out['TRIXS']
+	return out
+
+def get_raw_stochastic_value(rawData,window=14):
+	'''
+	compute raw stochastic value for given window
+
+	'''
+	low_min = rawData['Low'].rolling(window=window,center=False).min()
+	high_max = rawData['High'].rolling(window=window,center=False).max()
+
+	out = pd.DataFrame(index=rawData.index)
+	out['RSV'+str(window)] = (rawData['Close'] - low_min) /(high_max - low_min) * 100
+	out['RSVS'+str(window)] = out['RSV'+str(window)].rolling(window=3).mean()
+	out['RSVH'+str(window)] = out['RSV'+str(window)] - out['RSVS'+str(window)]
+
+	#out['RSV'+str(window)].fillna(0).astype('float64')
+
+	return out
