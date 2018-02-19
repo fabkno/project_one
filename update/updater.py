@@ -45,7 +45,7 @@ class StockUpdater(Log):
 
 		Log.__init__(self,PathData=PathData)
 
-		self.ListOfChartFeatures = ['GD200','GD100','GD50','GD38','BB_20_2','RSI7','RSI14','RSI25','WR14','CCI20','ADX','MACD','MAX20','MAX65','MAX130','MAX260','MIN20','MIN65','MIN130','MIN260']
+		self.ListOfChartFeatures = ['GD200','GD100','GD50','GD38','BB_20_2','RSI7','RSI14','RSI25','WR14','CCI20','ADX','MACD','MAX20','MAX65','MAX130','MAX260','MIN20','MIN65','MIN130','MIN260','PVO','TRIX','RSV14']
 
 		'''
 		PrizeThresholds : threshold to categorize relative (in percent) stock evolution within N days
@@ -88,8 +88,14 @@ class StockUpdater(Log):
 
 	def update_all(self):
 
+		ListOfTickers = self.ListOfCompanies['Yahoo Ticker']
 
-		self.update_stock_prizes()
+		for k in range(5):
+			if ListOfTickers is not None:
+				ListOfTickers = self.update_stock_prizes(ListOfTickers)
+
+
+
 		self.update_chart_markers()
 		self.update_stock_classification()
 
@@ -110,13 +116,14 @@ class StockUpdater(Log):
 
 		self.UpdateTimeEnd = datetime.datetime.today().date()
 		print "Today is ",self.UpdateTimeEnd,"\n"
+		notUpdated = []
 
-		for stocklabel in self.ListOfCompanies['Yahoo Ticker']:
+		for stocklabel in ListOfTickers:
 
 			if os.path.isfile(self.PathData + 'raw/stocks/'+stocklabel+'.p'):
 				StockValue = pd.read_pickle(self.PathData + 'raw/stocks/'+stocklabel+'.p')
 				
-				self.UpdateTimeStart = StockValue.tail(1)['Date'].tolist()[0].date()				
+				self.UpdateTimeStart = StockValue.tail(5)['Date'].tolist()[0].date()				
 
 				#if stock has been updated at the same date already
 				
@@ -131,13 +138,13 @@ class StockUpdater(Log):
 					stock_prize.reset_index(inplace=True)
 
 					#print stock_prize
-					stock_prize = stock_prize.loc[stock_prize['Date']>self.UpdateTimeStart]
+					stock_prize = stock_prize.loc[stock_prize['Date']>=self.UpdateTimeStart]
 					
 					if len(stock_prize) == 0:
 						self.logging("Stock "+stocklabel+": no new data available")
 						continue
 					
-					StockValue = pd.concat([StockValue, stock_prize], ignore_index=True)
+					StockValue = pd.concat([StockValue.loc[StockValue['Date']<self.UpdateTimeStart], stock_prize], ignore_index=True)
 
 					shutil.copy(self.PathData+'raw/stocks/'+stocklabel+'.p',self.PathData+'raw/stocks/backup/'+stocklabel+'.p')
 					
@@ -151,6 +158,7 @@ class StockUpdater(Log):
 				except RemoteDataError:
 					self.logging("Stock "+stocklabel+": No information for ticker found")
 					print "No information for ticker ", stocklabel
+					notUpdated.append(stocklabel)
 					continue
 
 			else:
@@ -175,7 +183,13 @@ class StockUpdater(Log):
 
 		print "\nFinished updating stock prizes\n\n"
 
+		if len(notUpdated) >0:
+			print "Not updated stocks",notUpdated
+			self.logging("Not updated stocks "+str(notUpdated))
 
+			return notUpdated
+		else:
+			return None
 	def update_chart_markers(self,ListOfTickers = None):
 		'''	
 		update chart indicators from raw chart data
@@ -284,7 +298,7 @@ class StockUpdater(Log):
 				out = ct.rolling_mean(rawData,window_size=np.int(_feature[2:]),column='Close')
 				output[_feature] = out['SMA'+str(_feature[2:])]
 				output[_feature+'X'] =ct.get_average_for_crossing_direction(out['SMA'+str(_feature[2:])])
-			
+				#output['dot'+_feature] = ct.get_average_slope(out['SMA'+str(_feature[2:])],relative=True)
 			#evtl. do slope of GD
 			#elif _feature[0:5] == 'DOTGD':
 			#	_window = np.int(_feature[5:])
@@ -343,6 +357,19 @@ class StockUpdater(Log):
 				#_out2 = self._get
 
 				#output[_feature] = pd.Series(tmp.get('adx').values,index=rawData.index)
+			elif _feature[0:4] == 'TRIX':
+				_out = ct.get_trix(rawData)
+				output['TRIX'] = _out['TRIX']
+				output['TRIXH'] = _out['TRIXH']
+				output['TRIXHX'] = ct.get_average_for_crossing_direction(_out['TRIXH'])
+
+			elif _feature[0:3] == 'RSV':
+				_window = np.int(_feature[3:])
+				_out=ct.get_raw_stochastic_value(rawData,window=_window)
+				output['RSV'+str(_window)] = _out['RSV'+str(_window)]
+				output['RSVH'+str(_window)] = _out['RSVH'+str(_window)]
+				output['RSVH'+str(_window)+'X'] = ct.get_average_for_crossing_direction(_out['RSVH'+str(_window)])
+
 
 			elif _feature[0:4] == 'MACD':
 				_out = ct.get_MACD(rawData)
@@ -371,6 +398,12 @@ class StockUpdater(Log):
 				rolling_min = pd.Series.rolling(rawData['Close'],window=_window,min_periods=min_).min().tolist()
 				output[_feature] = (rawData['Close'] - rolling_min)/rolling_min
 
+			elif _feature[0:3] == 'PVO':
+
+				_out = ct.get_PVO(rawData)
+
+				output[_feature+'H'] = _out['PVOH']
+				output[_feature+'HX'] = ct.get_average_for_crossing_direction(_out['PVOH'])
 
 		return output	
 		
