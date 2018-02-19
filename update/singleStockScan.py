@@ -514,7 +514,7 @@ class ScanModel(Log):
 
 		elif self.ModelType == 'SVM':
 			if GridParameters is None:
-				self.ParamGrid = [{'C':[1e-1,1,5,1e1,1e2],'gamma':[1e-2,1e-1,0.5,1,5,1e1],'kernel':['rbf']}] 
+				self.ParamGrid = [{'C':[1e-2,1e-1,1,5,1e1,1e2,1e3,5e3,1e4],'gamma':[1e-2,1e-1,0.5,1,5,1e1,50],'kernel':['rbf']}] 
 				
 			else:
 				self.ParamGrid
