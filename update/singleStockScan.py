@@ -52,7 +52,8 @@ class ModelPrediction(Log):
 		if os.path.exists(self.PathData + 'simulations/stocks/') is False:
 			os.makedirs(self.PathData + 'simulations/stocks/')
 
-
+		self.UpperCategoryBoundaries = np.array([-5,-2.5,0,2.5,5,100])*0.01
+		self.LowerCategoryBoundaries = np.array([-50,-5,-2.5,0,2.5,5])*0.01
 
 	def PredictStocksAll(self,DayOfPrediction=None):
 
@@ -75,8 +76,10 @@ class ModelPrediction(Log):
 			DayOfPrediction = DayOfPrediction.date()
 		except AttributeError:
 			pass
-
-		DailyPredictions = pd.DataFrame(columns=['Labels','LastTrainingsDate','DayOfPrediction','PredictedDay','StockPrizeAtDayOfPrediction','PredictedCategory','PredictedProbabilities','ModelType'],dtype=object)
+		DailyPredictions = pd.DataFrame(columns=['Labels','LastTrainingsDate','PredictionDay','ValidationDay',
+			'PrizeAtPrediction','PrizeAtValidation','RelativePrizeChange(%)',
+			'TrueCategory','PredictedCategory','PredictedProbabilities','PredictedUpperPrice','PredictedLowerPrice','ModelType','ModelParameters'],dtype=object)
+		#DailyPredictions = pd.DataFrame(columns=['Labels','LastTrainingsDate','DayOfPrediction','PredictedDay','StockPrizeAtDayOfPrediction','PredictedCategory','PredictedProbabilities','ModelType'],dtype=object)
 
 		for stocklabel in ListOfTickers:
 			
@@ -105,13 +108,15 @@ class ModelPrediction(Log):
 			ListOfFeatures = tmp['ListOfFeatures']		
 			modeltype = tmp['ModelType']
 
-			input_data = input_data.tail(10)
+			input_data = input_data.loc[input_data['Date'] <=DayOfPrediction].tail(10)
 			#input_data = input_data.loc[input_data['Date'] == DayOfPrediction]
-			
+		
 			if len(input_data.loc[input_data['Date'] == DayOfPrediction]) == 0:
-				self.logging('Stock '+stocklabel+': input data for today does not exist yet, take last business day to predict')
+				self.logging('Stock '+stocklabel+': input data for date'+str(DayOfPrediction)+' does not exist yet, take last business day to predict')
 				DayOfPrediction = input_data.tail(1)['Date'].tolist()[0].date()
+				#DayOfPrediction =(DayOfPrediction - BDay(1)).date()
 
+			print DayOfPrediction
 			input_data = input_data.loc[input_data['Date'] == DayOfPrediction]
 			
 			model_input = input_data.loc[:,(input_data.columns.isin(ListOfFeatures) == True) & (input_data.columns.isin(['Date']) == False)].values
@@ -124,15 +129,20 @@ class ModelPrediction(Log):
 				except KeyError:
 					self.logging("KeyError: Stock "+stocklabel+": no scaling object found, continue without scaling data")
 					pass
-	
+			
+		
+			## To do check business days for stock exchange
 			model_prediction = model.predict_proba(model_input)[0]
 			DailyPredictions = DailyPredictions.append({'Labels':stocklabel,'LastTrainingsDate':tmp['LastTrainingsDate'],
-				'DayOfPrediction':DayOfPrediction,
-				'PredictedDay':(DayOfPrediction+BDay(10)).date(),
-				'StockPrizeAtDayOfPrediction':input_data['Close'].values[0],
+				'PredictionDay':DayOfPrediction,
+				'ValidationDay':(DayOfPrediction+BDay(10)).date(),
+				'PrizeAtPrediction':np.round(input_data['Close'].values[0],decimals=2),			
 				'PredictedCategory':np.argmax(model_prediction),
 				'PredictedProbabilities':np.round(model_prediction,decimals=3),
-				'ModelType':modeltype},ignore_index=True)
+				'PredictedUpperPrice': np.round(input_data['Close'].values[0]*(1+self.UpperCategoryBoundaries[np.argmax(model_prediction)]),decimals=2),
+				'PredictedLowerPrice':np.round(input_data['Close'].values[0]*(1+self.LowerCategoryBoundaries[np.argmax(model_prediction)]),decimals=2),
+				'ModelType':modeltype,
+				'ModelParameters':tmp['ModelParameters']},ignore_index=True)
 			
 			self.logging("Stock "+stocklabel+": daily prediction done")
 		return DailyPredictions
@@ -142,7 +152,7 @@ class ModelPrediction(Log):
 		self.ComputeStockModels(ListOfTickers=self.ListOfCompanies['Yahoo Ticker'])
 
 
-	def ComputeStockModels(self,ListOfTickers):
+	def ComputeStockModels(self,ListOfTickers,LatestTrainingsDate=None):
 		'''
 		Update all stock models for companies provided in ListOfCompanies
 
@@ -167,7 +177,7 @@ class ModelPrediction(Log):
 			 	continue
 
 			 else:
-					ModelType,ModelingParamters,Features,StartingDate = params
+					ModelType,ModelingParameters,Features,StartingDate = params
 
 					#try if input/output for model exist
 					try:
@@ -181,17 +191,24 @@ class ModelPrediction(Log):
 						continue
 
 					if ModelType == 'RFC':
-						RFC_ob,LastTrainingsDate = self.SingleRFC(input_data,classification_data,ModelingParamters,Features,EarliestDate=StartingDate)
-						pickle.dump({'model':RFC_ob,'LastTrainingsDate':LastTrainingsDate,'timestamp':datetime.datetime.today().date(),'ModelType':ModelType,'ListOfFeatures':Features},open(self.PathData + 'models/stocks/'+stocklabel+'_model.p','wb'))
+						RFC_ob,LastTrainingsDate = self.SingleRFC(input_data,classification_data,ModelingParameters,Features,EarliestDate=StartingDate,LatestTrainingsDate=LatestTrainingsDate)
+						pickle.dump({'model':RFC_ob,'LastTrainingsDate':LastTrainingsDate,
+							'timestamp':datetime.datetime.today().date(),'ModelType':ModelType,
+							'ListOfFeatures':Features,'ModelParameters':ModelingParameters},open(self.PathData + 'models/stocks/'+stocklabel+'_model.p','wb'))
 
 					elif ModelType == 'SVM':
-						_out = self.SingleSVM(input_data,classification_data,ModelingParamters,Features,EarliestDate=StartingDate)
+						_out = self.SingleSVM(input_data,classification_data,ModelingParameters,Features,EarliestDate=StartingDate,LatestTrainingsDate=LatestTrainingsDate)
 						if len(_out) == 2:
 							SVM_ob,LastTrainingsDate= _out
-							pickle.dump({'model':SVM_ob,'LastTrainingsDate':LastTrainingsDate,'timestamp':datetime.datetime.today().date(),'ModelType':ModelType,'ListOfFeatures':Features},open(self.PathData + 'models/stocks/'+stocklabel+'_model.p','wb'))
+							pickle.dump({'model':SVM_ob,'LastTrainingsDate':LastTrainingsDate,'timestamp':datetime.datetime.today().date(),
+								'ModelType':ModelType,'ListOfFeatures':Features,'ModelParameters':ModelingParameters}
+								,open(self.PathData + 'models/stocks/'+stocklabel+'_model.p','wb'))
+
 						elif len(_out) == 3:
 							SVM_ob,LastTrainingsDate,scaling= _out
-							pickle.dump({'model':SVM_ob,'LastTrainingsDate':LastTrainingsDate,'timestamp':datetime.datetime.today().date(),'ModelType':ModelType,'ListOfFeatures':Features,'scaling':scaling},open(self.PathData + 'models/stocks/'+stocklabel+'_model.p','wb'))
+							pickle.dump({'model':SVM_ob,'LastTrainingsDate':LastTrainingsDate,'timestamp':datetime.datetime.today().date(),'ModelType':ModelType,
+								'ListOfFeatures':Features,'ModelParameters':ModelingParameters,'scaling':scaling},
+								open(self.PathData + 'models/stocks/'+stocklabel+'_model.p','wb'))
 					
 					self.logging("Stock "+stocklabel+": final model written")
 					print "Final model for",stocklabel,"written"
@@ -214,7 +231,9 @@ class ModelPrediction(Log):
 		'''
 		scaling = None
 
-		Validations = pd.DataFrame(columns=['PredictionDay','ValidationDay','PrizeAtPrediction','PrizeAtValidaion','RelativePrizeChange(%)','TrueCategory','PredictedCategory','PredictedProbabilities'],dtype=object)
+		Validations = pd.DataFrame(columns=['LastTrainingsDate','PredictionDay','ValidationDay','PrizeAtPrediction','PrizeAtValidation',
+			'RelativePrizeChange(%)','TrueCategory','PredictedCategory','PredictedProbabilities','PredictedUpperPrice','PredictedLowerPrice',
+			'ModelType','ModelParameters'],dtype=object)
 
 		params= self.read_modeling_parameters(Ticker,ModelType=ModelType)
 		if params is None:
@@ -223,7 +242,7 @@ class ModelPrediction(Log):
 			
 		else:
 
-			ModelType,ModelingParamters,ListOfFeatures,StartingDateTraining = params
+			ModelType,ModelingParameters,ListOfFeatures,StartingDateTraining = params
 				#try if input/output for model exist
 		try:
 			input_data = pd.read_pickle(self.PathData + 'chart/stocks/'+Ticker+'.p')					
@@ -244,13 +263,13 @@ class ModelPrediction(Log):
 			inputSimulation= input_data.loc[(input_data['Date']>=StartingDateTraining) & (input_data['Date']<_starting_date)]
 			classificationSimulation =classification_data.loc[(classification_data['Date']>=StartingDateTraining) & (classification_data['Date']<_starting_date)]
 
-
 			effectiveStartingDate= inputSimulation.tail(1)['Date'].tolist()[0].date()
+
 		 	if ModelType == 'RFC':
-				model_ob,LastTrainingsDate = self.SingleRFC(inputSimulation,classificationSimulation,ModelingParamters,ListOfFeatures,EarliestDate=StartingDateTraining,n_estimators=100)
+				model_ob,LastTrainingsDate = self.SingleRFC(inputSimulation,classificationSimulation,ModelingParameters,ListOfFeatures,EarliestDate=StartingDateTraining,n_estimators=100)
 
 			elif ModelType == "SVM" and scaled == True:
-				model_ob,LastTrainingsDate,scaling = self.SingleSVM(inputSimulation,classificationSimulation,ModelingParamters,ListOfFeatures,EarliestDate=StartingDateTraining,scaled=scaled)
+				model_ob,LastTrainingsDate,scaling = self.SingleSVM(inputSimulation,classificationSimulation,ModelingParameters,ListOfFeatures,EarliestDate=StartingDateTraining,scaled=scaled)
 
 			index_tmp = input_data.loc[input_data['Date'] == effectiveStartingDate].index.tolist()[0]
 			DayOfPrediction = input_data.loc[index_tmp + 1]['Date'].date()
@@ -272,22 +291,28 @@ class ModelPrediction(Log):
 			close_at_validationday = input_data.loc[index_tmp+11]['Close']
 
 			Validations = Validations.append({'PredictionDay':DayOfPrediction,
+				'LastTrainingsDate':effectiveStartingDate,
 				'ValidationDay':input_data.loc[index_tmp+11]['Date'].date(),
-				'PrizeAtPrediction':close_at_predictionday,
-				'PrizeAtValidaion':close_at_validationday,
-				'RelativePrizeChange(%)':(close_at_validationday-close_at_predictionday)/close_at_predictionday * 100,
+				'PrizeAtPrediction':np.round(close_at_predictionday,decimals=2),
+				'PrizeAtValidation':np.round(close_at_validationday,decimals=2),
+				'RelativePrizeChange(%)':np.round((close_at_validationday-close_at_predictionday)/close_at_predictionday * 100,decimals=2),
 				'TrueCategory':np.argmax(classification_data.loc[index_tmp+1,classification_data.columns.isin(['Date']) == False].values),
 				'PredictedCategory':np.argmax(prediction),
-				'PredictedProbabilities':prediction[0]
+				'PredictedProbabilities':prediction[0],
+				'PredictedUpperPrice': np.round(close_at_predictionday*(1+self.UpperCategoryBoundaries[np.argmax(prediction)]),decimals=2),
+				'PredictedLowerPrice':np.round(close_at_predictionday*(1+self.LowerCategoryBoundaries[np.argmax(prediction)]),decimals=2),
+				'ModelType':ModelType,
+				'ModelParameters':ModelingParameters
 				},ignore_index=True)
 
-		
+		#print Validations
+		#return Validations
 		Validations.to_pickle(self.PathData + 'simulations/stocks/'+Ticker+'_prediction.p')
 		self.logging("Stock: "+Ticker+" simlation finished from "+str(StartingDateSimulation) + " until "+str(_starting_dates_simulations[-1].date())+ " with modeltype: "+ModelType)
 
 		print "Finished stock simulation for stock: "+Ticker+" from "+str(StartingDateSimulation) + " until "+str(_starting_dates_simulations[-1].date())+" with modeltype: "+ModelType
 
-	def SingleSVM(self,InputData,ClassificationData,ParameterSet,ListOfFeatures,EarliestDate=None,LatestDate=None,n_jobs=2,scaled = True):
+	def SingleSVM(self,InputData,ClassificationData,ParameterSet,ListOfFeatures,EarliestDate=None,LatestTrainingsDate=None,n_jobs=2,scaled = True):
 		'''
 		single SVM (linear or with kernel)
 
@@ -304,7 +329,7 @@ class ModelPrediction(Log):
 		
 		_common_dates = util.find_common_notnull_dates(InputData,ClassificationData)
 	
-		InputData = InputData.loc[(InputData['Date'].isin(_common_dates)) & (InputData['Date'] > EarliestDate) & (InputData['Date'] <= LatestDate)]
+		InputData = InputData.loc[(InputData['Date'].isin(_common_dates)) & (InputData['Date'] > EarliestDate) & (InputData['Date'] <= LatestTrainingsDate)]
 		Input = InputData.loc[:,InputData.columns.isin(['Date']) == False].values
 		
 		if scaled == True:
@@ -314,7 +339,7 @@ class ModelPrediction(Log):
 			Input -=input_mean
 			Input /=input_std
 
-		ClassificationData = ClassificationData.loc[(ClassificationData['Date'].isin(_common_dates)) & (InputData['Date'] > EarliestDate) & (InputData['Date'] <= LatestDate)]
+		ClassificationData = ClassificationData.loc[(ClassificationData['Date'].isin(_common_dates)) & (InputData['Date'] > EarliestDate) & (InputData['Date'] <= LatestTrainingsDate)]
 		Output = np.argmax(ClassificationData.loc[:,ClassificationData.columns.isin(['Date']) == False].values,axis=1)
 
 		util.check_for_length_and_nan(Input,Output)
@@ -328,7 +353,7 @@ class ModelPrediction(Log):
 		else:
 			return SVM,InputData.tail(1)['Date'].tolist()[0].date()
 
-	def SingleRFC(self,InputData,ClassificationData,ParameterSet,ListOfFeatures,EarliestDate=None,LatestDate=None,n_estimators=200,n_jobs=2):
+	def SingleRFC(self,InputData,ClassificationData,ParameterSet,ListOfFeatures,EarliestDate=None,LatestTrainingsDate=None,n_estimators=200,n_jobs=2):
 		'''
 		single random forest classification model for given parameter set
 
@@ -356,19 +381,19 @@ class ModelPrediction(Log):
 		if EarliestDate is None:
 			EarliestDate = datetime.datetime(2010,1,1)
 
-		if LatestDate is None:
-			LatestDate = datetime.datetime.today().date()
+		if LatestTrainingsDate is None:
+			LatestTrainingsDate = datetime.datetime.today().date()
 
 		#Prepare InputData and OutputData
 		InputData = InputData.loc[:,InputData.columns.isin(ListOfFeatures+['Date']) == True]
 		
 		_common_dates = util.find_common_notnull_dates(InputData,ClassificationData)
 	
-		InputData = InputData.loc[(InputData['Date'].isin(_common_dates)) & (InputData['Date'] > EarliestDate) & (InputData['Date'] <= LatestDate)]
+		InputData = InputData.loc[(InputData['Date'].isin(_common_dates)) & (InputData['Date'] > EarliestDate) & (InputData['Date'] <= LatestTrainingsDate)]
 		Input = InputData.loc[:,InputData.columns.isin(['Date']) == False].values
 	
 
-		ClassificationData = ClassificationData.loc[(ClassificationData['Date'].isin(_common_dates)) & (InputData['Date'] > EarliestDate) & (InputData['Date'] <= LatestDate)]
+		ClassificationData = ClassificationData.loc[(ClassificationData['Date'].isin(_common_dates)) & (InputData['Date'] > EarliestDate) & (InputData['Date'] <= LatestTrainingsDate)]
 		Output = np.argmax(ClassificationData.loc[:,ClassificationData.columns.isin(['Date']) == False].values,axis=1)
 
 		util.check_for_length_and_nan(Input,Output)
