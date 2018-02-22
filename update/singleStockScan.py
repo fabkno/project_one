@@ -321,8 +321,8 @@ class ModelPrediction(Log):
 		if EarliestDate is None:
 			EarliestDate = datetime.datetime(2010,1,1)
 
-		if LatestDate is None:
-			LatestDate = datetime.datetime.today().date()
+		if LatestTrainingsDate is None:
+			LatestTrainingsDate = datetime.datetime.today().date()
 
 		#Prepare InputData and OutputData
 		InputData = InputData.loc[:,InputData.columns.isin(ListOfFeatures+['Date']) == True]
