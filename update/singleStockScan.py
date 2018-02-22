@@ -77,8 +77,8 @@ class ModelPrediction(Log):
 		except AttributeError:
 			pass
 		DailyPredictions = pd.DataFrame(columns=['Labels','LastTrainingsDate','PredictionDay','ValidationDay',
-			'PrizeAtPrediction','PrizeAtValidation','RelativePrizeChange(%)',
-			'TrueCategory','PredictedCategory','PredictedProbabilities','PredictedUpperPrice','PredictedLowerPrice','ModelType','ModelParameters'],dtype=object)
+			'PrizeAtPrediction','PrizeAtValidation','RelativePrizeChange',
+			'TrueCategory','PredictedCategory','PredictedProbabilities','PredictedUpperPrize','PredictedLowerPrize','ModelType','ModelParameters'],dtype=object)
 		#DailyPredictions = pd.DataFrame(columns=['Labels','LastTrainingsDate','DayOfPrediction','PredictedDay','StockPrizeAtDayOfPrediction','PredictedCategory','PredictedProbabilities','ModelType'],dtype=object)
 
 		for stocklabel in ListOfTickers:
@@ -139,8 +139,8 @@ class ModelPrediction(Log):
 				'PrizeAtPrediction':np.round(input_data['Close'].values[0],decimals=2),			
 				'PredictedCategory':np.argmax(model_prediction),
 				'PredictedProbabilities':np.round(model_prediction,decimals=3),
-				'PredictedUpperPrice': np.round(input_data['Close'].values[0]*(1+self.UpperCategoryBoundaries[np.argmax(model_prediction)]),decimals=2),
-				'PredictedLowerPrice':np.round(input_data['Close'].values[0]*(1+self.LowerCategoryBoundaries[np.argmax(model_prediction)]),decimals=2),
+				'PredictedUpperPrize': np.round(input_data['Close'].values[0]*(1+self.UpperCategoryBoundaries[np.argmax(model_prediction)]),decimals=2),
+				'PredictedLowerPrize':np.round(input_data['Close'].values[0]*(1+self.LowerCategoryBoundaries[np.argmax(model_prediction)]),decimals=2),
 				'ModelType':modeltype,
 				'ModelParameters':tmp['ModelParameters']},ignore_index=True)
 			
@@ -232,7 +232,7 @@ class ModelPrediction(Log):
 		scaling = None
 
 		Validations = pd.DataFrame(columns=['LastTrainingsDate','PredictionDay','ValidationDay','PrizeAtPrediction','PrizeAtValidation',
-			'RelativePrizeChange(%)','TrueCategory','PredictedCategory','PredictedProbabilities','PredictedUpperPrice','PredictedLowerPrice',
+			'RelativePrizeChange','TrueCategory','PredictedCategory','PredictedProbabilities','PredictedUpperPrize','PredictedLowerPrize',
 			'ModelType','ModelParameters'],dtype=object)
 
 		params= self.read_modeling_parameters(Ticker,ModelType=ModelType)
@@ -295,12 +295,12 @@ class ModelPrediction(Log):
 				'ValidationDay':input_data.loc[index_tmp+11]['Date'].date(),
 				'PrizeAtPrediction':np.round(close_at_predictionday,decimals=2),
 				'PrizeAtValidation':np.round(close_at_validationday,decimals=2),
-				'RelativePrizeChange(%)':np.round((close_at_validationday-close_at_predictionday)/close_at_predictionday * 100,decimals=2),
+				'RelativePrizeChange':np.round((close_at_validationday-close_at_predictionday)/close_at_predictionday * 100,decimals=2),
 				'TrueCategory':np.argmax(classification_data.loc[index_tmp+1,classification_data.columns.isin(['Date']) == False].values),
 				'PredictedCategory':np.argmax(prediction),
 				'PredictedProbabilities':prediction[0],
-				'PredictedUpperPrice': np.round(close_at_predictionday*(1+self.UpperCategoryBoundaries[np.argmax(prediction)]),decimals=2),
-				'PredictedLowerPrice':np.round(close_at_predictionday*(1+self.LowerCategoryBoundaries[np.argmax(prediction)]),decimals=2),
+				'PredictedUpperPrize': np.round(close_at_predictionday*(1+self.UpperCategoryBoundaries[np.argmax(prediction)]),decimals=2),
+				'PredictedLowerPrize':np.round(close_at_predictionday*(1+self.LowerCategoryBoundaries[np.argmax(prediction)]),decimals=2),
 				'ModelType':ModelType,
 				'ModelParameters':ModelingParameters
 				},ignore_index=True)
