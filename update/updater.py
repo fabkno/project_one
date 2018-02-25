@@ -86,18 +86,21 @@ class StockUpdater(Log):
 			os.makedirs(self.PathData+'classification/stocks/')
 
 
-	def update_all(self):
+	def update_all(self,ListOfTickers = None):
 
-		ListOfTickers = self.ListOfCompanies['Yahoo Ticker']
+		if ListOfTickers is None:
+			ListOfTickers = self.ListOfCompanies['Yahoo Ticker']
+
+		newList = self.update_stock_prizes(ListOfTickers)
 
 		for k in range(5):
-			if ListOfTickers is not None:
-				ListOfTickers = self.update_stock_prizes(ListOfTickers)
+			if newList is not None:
+				newList = self.update_stock_prizes(newList)
 
 
 
-		self.update_chart_markers()
-		self.update_stock_classification()
+		self.update_chart_markers(ListOfTickers)
+		self.update_stock_classification(ListOfTickers)
 
 	def update_stock_prizes(self,ListOfTickers =None):
 
@@ -224,12 +227,13 @@ class StockUpdater(Log):
 		update stock classification 
 
 		'''
+		
 		if ListOfTickers is None:
 			ListOfTickers = self.ListOfCompanies['Yahoo Ticker']
 
 		print "Start updating stock classification"
 		print "--------------------------------------\n"
-		for stocklabel in self.ListOfCompanies['Yahoo Ticker']:
+		for stocklabel in ListOfTickers:
 			
 			#check if raw stock data exists
 			if os.path.isfile(self.PathData + 'raw/stocks/'+stocklabel+'.p'):
