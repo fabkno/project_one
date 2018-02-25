@@ -174,3 +174,14 @@ def URL_online(URL):
 			if requests.get(URL[i]).status_code == 200:
 				return_values[i] = True
 		return return_values
+
+
+def find_category(relative_prize,thresholds=np.array([-5,-2.5,0,2.5,5])):
+
+	tmp = np.where(relative_prize <= thresholds)[0]
+
+	if len(tmp) == 0:
+		return len(thresholds)
+
+	else:
+		return tmp[0]
