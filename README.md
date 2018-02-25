@@ -7,9 +7,16 @@ required packages besides obvious ones:
 
 - pandas 0.22
 
+
+Some fixes:
+
+- incorporated national holidays. So far Germany and US
+
+
+
 Some notes:
 
-- create list of stocks for which update of stock prize didn't work and recheck automatically
+- create list of stocks for which update of stock prize didn't work and recheck automatically DONE
 
 - get statistics of missing number in stocks
 
