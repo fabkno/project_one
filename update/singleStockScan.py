@@ -72,9 +72,8 @@ class ModelPrediction(Log):
 				#print prediction.loc[n]
 				#look in prediction data base if prediction at same day exists
 				tmp = predictionsFull.loc[(predictionsFull['Labels'] == prediction['Labels'][n]) & 
-							(predictionsFull['LastTrainingsDate'] == prediction['LastTrainingsDate'][n]) & 
-							(predictionsFull['PredictionDay'] == prediction['PredictionDay'][n])]
-
+							(predictionsFull['PredictionDay'] == prediction['PredictionDay'][n]) & 
+							(predictionsFull['ValidationDay'] == prediction['ValidationDay'][n])]
 				# if no simply append prediction 
 				if len(tmp) == 0: 
 					#print "added"
@@ -115,11 +114,10 @@ class ModelPrediction(Log):
 
 		except IOError:			
 			#if data base does not exisit add new database
-			print "Here"
 			prediction.to_pickle(self.PathData+'predictions/stocks/full_predictions_'+str(business_days)+'BT.p')	
 
 		self.logging('List of Predictions added to data base complete')
-		print('List of Predictions added to data base complete')
+		#print('List of Predictions added to data base complete')
 
 
 	def PredictStocksAll(self,DayOfPrediction=None):
@@ -129,7 +127,16 @@ class ModelPrediction(Log):
 
 		predictions = self.PredictStocks(ListOfTickers=self.ListOfCompanies['Yahoo Ticker'],DayOfPrediction = DayOfPrediction)
 
-		predictions.to_pickle(self.PathData+'predictions/stocks/daily_predictions_'+str(DayOfPrediction.year)+'_'+str(DayOfPrediction.month)+'_'+str(DayOfPrediction.day)+'.p')
+		try: 
+			tmp = pd.read_pickle(self.PathData+'predictions/stocks/daily_predictions_'+str(DayOfPrediction.year)+'_'+str(DayOfPrediction.month)+'_'+str(DayOfPrediction.day)+'.p')
+
+			tmp = pd.concat([tmp,predictions])
+			tmp.reset_index(drop=True,inplace=True)
+
+			tmp.to_pickle(self.PathData+'predictions/stocks/daily_predictions_'+str(DayOfPrediction.year)+'_'+str(DayOfPrediction.month)+'_'+str(DayOfPrediction.day)+'.p')
+
+		except IOError:
+			predictions.to_pickle(self.PathData+'predictions/stocks/daily_predictions_'+str(DayOfPrediction.year)+'_'+str(DayOfPrediction.month)+'_'+str(DayOfPrediction.day)+'.p')
 
 		self.writeToPandasDataBase(predictions)
 
@@ -146,6 +153,8 @@ class ModelPrediction(Log):
 		except AttributeError:
 			pass
 
+		DoP = DayOfPrediction
+
 		DailyPredictions = pd.DataFrame(columns=['Labels','LastTrainingsDate','PredictionDay','ValidationDay',
 			'PrizeAtPrediction','PrizeAtValidation','RelativePrizeChange',
 			'TrueCategory','PredictedCategory','PredictedProbabilities','PredictedUpperPrize','PredictedLowerPrize','ModelType','ModelParameters','Timestamp'],dtype=object)
@@ -153,6 +162,8 @@ class ModelPrediction(Log):
 
 		for stocklabel in ListOfTickers:
 			
+			DayOfPrediction = DoP
+
 			try:
 				tmp = pickle.load(open(self.PathData + 'models/stocks/'+stocklabel+'_model.p'))
 
@@ -178,8 +189,9 @@ class ModelPrediction(Log):
 			#input_data = input_data.loc[input_data['Date'] == DayOfPrediction]
 		
 			if len(input_data.loc[input_data['Date'] == DayOfPrediction]) == 0:
-				self.logging('Stock '+stocklabel+': input data for date'+str(DayOfPrediction)+' does not exist yet, take last business day to predict')
+				_date4log = DayOfPrediction
 				DayOfPrediction = input_data.tail(1)['Date'].tolist()[0].date()
+				self.logging('Stock '+stocklabel+': input data for date: '+str(_date4log)+' does not exist yet, take last business day '+str(DayOfPrediction)+' to predict')
 
 			if tmp['LastTrainingsDate'] >= DayOfPrediction:
 				self.logging("Stock "+stocklabel+": DayOfPrediction within trainings period, use later date")
@@ -221,16 +233,32 @@ class ModelPrediction(Log):
 				'ModelParameters':tmp['ModelParameters']},ignore_index=True)
 			
 			self.logging("Stock "+stocklabel+": daily prediction done")
+
 		return DailyPredictions
 
-	def UpdateStockModelAndPredict(self,ListOfTickers,DayOfPrediction):
+	def UpdateStockModelAndPredict(self,ListOfTickers='all',DayOfPrediction=None,double_save=False):
 
 		#print(DayOfPrediction-BDay(self.PredictionWindow)).date()
+		if ListOfTickers is 'all':
+			ListOfTickers = self.ListOfCompanies['Yahoo Ticker']
+
+		if DayOfPrediction is None:
+			DayOfPrediction = dt.today().date()
 
 		self.ComputeStockModels(ListOfTickers,LastTrainingsDate=(DayOfPrediction-BDay(self.PredictionWindow)).date())
 		predictions=self.PredictStocks(ListOfTickers,DayOfPrediction)
-
 		self.writeToPandasDataBase(predictions)
+
+		if double_save == True:
+			try: 
+				tmp = pd.read_pickle(self.PathData+'predictions/stocks/daily_predictions_'+str(DayOfPrediction.year)+'_'+str(DayOfPrediction.month)+'_'+str(DayOfPrediction.day)+'.p')
+				tmp = pd.concat([tmp,predictions])
+				tmp.reset_index(drop=True,inplace=True)
+				tmp.to_pickle(self.PathData+'predictions/stocks/daily_predictions_'+str(DayOfPrediction.year)+'_'+str(DayOfPrediction.month)+'_'+str(DayOfPrediction.day)+'.p')
+			except IOError:
+				predictions.to_pickle(self.PathData+'predictions/stocks/daily_predictions_'+str(DayOfPrediction.year)+'_'+str(DayOfPrediction.month)+'_'+str(DayOfPrediction.day)+'.p')
+
+		
 
 	def ComputeStockModelsAll(self):
 
@@ -251,18 +279,18 @@ class ModelPrediction(Log):
 
 		ListOfTickers : List of strings contains yahoo tickers to compute models
 
-		ModelType : string (default = 'RFC') gives the type of model
+		LastTrainingsDate : datetime object (default is None), gives dates of last trainingsdate to use for modeling
 
 		'''
 
 		for stocklabel in ListOfTickers:
-	
-			 params= self.read_modeling_parameters(stocklabel)
-			 if params is None:
+		
+			params= self.read_modeling_parameters(stocklabel)
+			if params is None:
 			 	self.logging('No modeling parameters found stock: '+stocklabel)
 			 	continue
 
-			 else:
+			else:
 					ModelType,ModelingParameters,Features,StartingDate = params
 
 					#try if input/output for model exist
@@ -283,7 +311,9 @@ class ModelPrediction(Log):
 							'ListOfFeatures':Features,'ModelParameters':ModelingParameters},open(self.PathData + 'models/stocks/'+stocklabel+'_model.p','wb'))
 
 					elif ModelType == 'SVM':
+						
 						_out = self.SingleSVM(input_data,classification_data,ModelingParameters,Features,FirstTrainingsDate=StartingDate,LastTrainingsDate=LastTrainingsDate)
+						
 						if len(_out) == 2:
 							SVM_ob,LastTrainingsDate= _out
 							pickle.dump({'model':SVM_ob,'LastTrainingsDate':LastTrainingsDate,'timestamp':dt.today().date(),
@@ -297,6 +327,7 @@ class ModelPrediction(Log):
 								open(self.PathData + 'models/stocks/'+stocklabel+'_model.p','wb'))
 					
 					self.logging("Stock "+stocklabel+": final model written")
+
 					print "Final model for",stocklabel,"written"
 
 	def RunStockSimulation(self,Ticker,StartingDateSimulation,FinalDateSimulation = None,ModelType=None,scaled=True):
