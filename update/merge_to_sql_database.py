@@ -165,7 +165,7 @@ def compare_databases(ListOfLabels='all',ListOfPredictionDays='all'):
 
 		if ListOfPredictionDays is not 'all':
 			dff = dff.loc[dff['PredictionDay'].isin(ListOfPredictionDays)]
-
+			
 		for n in dff.index.tolist():
 
 			if check_if_entry_exists(db,dff.loc[n]) is False:
