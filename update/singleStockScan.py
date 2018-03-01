@@ -247,6 +247,7 @@ class ModelPrediction(Log):
 
 		self.ComputeStockModels(ListOfTickers,LastTrainingsDate=(DayOfPrediction-BDay(self.PredictionWindow)).date())
 		predictions=self.PredictStocks(ListOfTickers,DayOfPrediction)
+		
 		self.writeToPandasDataBase(predictions)
 
 		if double_save == True:
