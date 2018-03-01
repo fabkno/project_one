@@ -7,6 +7,8 @@ from pandas_datareader._utils import RemoteDataError
 import stockstats
 import chart_tools as ct
 from logger import Log
+from requests.exceptions import SSLError
+
 
 	# 		#find index with NAN
 	# 		indsInput = InputData.loc[InputData.notnull().all(axis=1)].index.tolist()
@@ -93,7 +95,9 @@ class StockUpdater(Log):
 
 		newList = self.update_stock_prizes(ListOfTickers)
 
+
 		for k in range(5):
+			
 			if newList is not None:
 				newList = self.update_stock_prizes(newList)
 
@@ -164,6 +168,10 @@ class StockUpdater(Log):
 					notUpdated.append(stocklabel)
 					continue
 
+				except SSLError:
+					self.logging("Stock "+stocklabel+":SSLError")
+					notUpdated.append(stocklabel)
+					continue
 			else:
 				#if file is not available yet get data starting from 01/01/2000
 				self.UpdateTimeStart = datetime.datetime(2000,1,1).date()
@@ -183,6 +191,12 @@ class StockUpdater(Log):
 					self.logging("Stock "+stocklabel+": No information for ticker found")
 					print "No information for ticker ", stocklabel
 					continue
+
+				except SSLError:
+					self.logging("Stock "+stocklabel+":SSLError")
+					notUpdated.append(stocklabel)
+					continue
+
 
 		print "\nFinished updating stock prizes\n\n"
 
