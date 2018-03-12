@@ -603,7 +603,7 @@ class ModelPrediction(Log):
 
 class ScanModel(Log):
 
-	def __init__(self,ModelType,FileNameListOfCompanies=None,ListOfFeatures='default',GridParameters=None,test_size =0.1,cv_splits=5,n_jobs=-2,PathData=None):
+	def __init__(self,ModelType,duration,FileNameListOfCompanies=None,ListOfFeatures='default',GridParameters=None,test_size =0.1,cv_splits=5,n_jobs=-2,PathData=None,EarliestDate=None):
 		'''
 		The main task of this class is to scan hyper parameters of stocks and save results in file prediction_scan.p
 
@@ -635,8 +635,19 @@ class ScanModel(Log):
 		self.cv_splits = cv_splits
 		self.ModelType = ModelType
 		self.ListOfFeatures = ListOfFeatures
+		self.duration = duration
+	
+		if EarliestDate is None:
+			self.EarliestDate = dt(2010,1,1).date()
+			
+		else:
+	
+			try: 
+				self.EarliestDate = EarliestDate.date()
+			except AttributeError:
+				self.EarliestDate = EarliestDate
+				pass
 
-		self.EarliestDate = dt(2010,1,1).date()
 
 		if self.ModelType is None or self.ModelType in ['RFC','SVM'] == False:
 			self.logging("ValueError: Requested model type is not implemented. Choose >>RFC<< or >>SVM<< instead")
@@ -663,13 +674,13 @@ class ScanModel(Log):
 		
 		if self.ModelType == 'RFC':
 			if GridParameters is None:		
-				self.ParamGrid = [{'max_depth':[10,20,50,75,100,150,200,300],'max_features':['auto','log2']}]
+				self.ParamGrid = {'max_depth':[10,20,30,50,75,100,150,200,250,300],'max_features':['auto','log2']}
 			else:
 				self.ParamGrid = GridParameters
 
 		elif self.ModelType == 'SVM':
 			if GridParameters is None:
-				self.ParamGrid = [{'C':[1e-2,1e-1,1,5,1e1,1e2,1e3,5e3,1e4],'gamma':[1e-2,1e-1,0.5,1,5,1e1,50],'kernel':['rbf']}] 
+				self.ParamGrid = {'C':[1e-2,1e-1,0.25,0.5,0.75,1,2.5,5,7.5,1e1,1e2],'gamma':[1e-4,5e-5,1e-3,5e-3,1e-2,5e-2,1e-1,1,10],'kernel':['rbf']}
 				
 			else:
 				self.ParamGrid
@@ -679,7 +690,7 @@ class ScanModel(Log):
 			os.makedirs(self.PathData + 'predictions')
 
 
-#		self.val_sets = ShuffleSplit(n_splits = )
+
 	def gridSearch(self,Input,Output,split_sets,modeltype='RFC'):
 		'''
 		grid search function for random forest classifier
@@ -691,20 +702,29 @@ class ScanModel(Log):
 		elif modeltype == 'SVM':
 			ob = SVC()
 
-		Grids =GridSearchCV(ob,self.ParamGrid,cv=split_sets,n_jobs=self.n_jobs)
-		Grids.fit(Input,Output)
-		return Grids.best_score_,Grids.best_params_
+		#create empyt list for scores 
+		scores_ = np.zeros(np.prod([len(self.ParamGrid[self.ParamGrid.keys()[i]]) for i in range(len(self.ParamGrid))]))
+		
+		for i in range(0,self.duration):
+			Grids =GridSearchCV(ob,self.ParamGrid,cv=split_sets,n_jobs=self.n_jobs)
+			Grids.fit(Input[i::self.duration,:],Output[i::self.duration])
+			scores_ += Grids.cv_results_['mean_test_score']
+
+		#find names of hyperparameters 
+		paramNames = [param[6:] for param in Grids.cv_results_.keys() if param[0:6] == 'param_']
+
+		#find mask of every hyperparameter
+		masks = [Grids.cv_results_['param_'+paramNames[i]] for i in range(len(paramNames))]
+		#determine best fitting value for all hyper parameters
+		best_values = [mask[np.argmax(scores_)] for mask in masks]
+
+		#ereturn best scores and corresponding hyper parameters
+		return np.max(scores_)/self.duration,{paramNames[i]:best_values[i] for i in range(len(paramNames))}
 
 	# To do singel RFC, single SVM, gridSearch SVM
-	def StockGridModelingAll(self,scaled=True,EarliestDate=None):
-		if EarliestDate is None:
-			EarliestDate = self.EarliestDate
-		try:
-			EarliestDate = EarliestDate.date()
-		except AttributeError:
-			pass
+	def StockGridModelingAll(self,scaled=True):
 
-		self.StockGridModeling(ListOfTickers=self.ListOfCompanies['Yahoo Ticker'],scaled=True,EarliestDate=EarliestDate)
+		self.StockGridModeling(ListOfTickers=self.ListOfCompanies['Yahoo Ticker'],scaled=True,EarliestDate=self.EarliestDate)
 
 	def StockGridModeling(self,ListOfTickers,scaled=True,EarliestDate=None):
 
@@ -727,7 +747,7 @@ class ScanModel(Log):
 		'''
 
 		if os.path.isfile(self.PathData+'predictions/predictions_scan.p') == False:	
-		 	prediction_out = pd.DataFrame(columns=['Labels','ModelType','SearchedParameters','BestParameters','BestParameterValues','Score','Input','ListOfFeatures','Date','StartingDate'],dtype=object)
+		 	prediction_out = pd.DataFrame(columns=['Labels','ModelType','SearchedParameters','BestParameters','BestParameterValues','Score','Input','ListOfFeatures','Date','StartingDate','Duration'],dtype=object)
 			prediction_out.to_pickle(self.PathData+'predictions/predictions_scan.p')
 
 		prediction_out = pd.read_pickle(self.PathData+'predictions/predictions_scan.p')
@@ -742,15 +762,15 @@ class ScanModel(Log):
 
 		for stocklabel in ListOfTickers:
 								
-			if (os.path.isfile(self.PathData+'chart/stocks/'+stocklabel+'.p') == False) or (os.path.isfile(self.PathData +'classification/stocks/'+stocklabel+'.p') == False):
-				self.logging("Stock "+stocklabel+": chart or classification data does not exist")
-				print "Data for stock: ",stocklabel, " does not exist"
+			if (os.path.isfile(self.PathData+'chart/stocks/'+stocklabel+'.p') == False) or (os.path.isfile(self.PathData +'classification/stocks/duration_'+str(self.duration)+'/'+stocklabel+'.p') == False):
+				self.logging("Stock "+stocklabel+": chart or classification for duration "+str(self.duration)+" data does not exist")
+				print "Stock "+stocklabel+": chart or classification for duration "+str(self.duration)+" data does not exist"
 				continue
 
 			else:
 
 				ChartData = pd.read_pickle(self.PathData+'chart/stocks/'+stocklabel+'.p') 							
-				ClassificationData= pd.read_pickle(self.PathData +'classification/stocks/'+stocklabel+'.p') 
+				ClassificationData= pd.read_pickle(self.PathData +'classification/stocks/duration_'+str(self.duration)+'/'+stocklabel+'.p') 
 
 				common_dates =util.find_common_notnull_dates(ChartData,ClassificationData)
 
@@ -777,7 +797,7 @@ class ScanModel(Log):
 						
 				# set random_state np.random.randint(1,1e6)
 				#Xtrain,Xval,Ytrain,Yval = train_test_split(Xfull,Yfull,self.test_size,random_state=1)
-				cv = ShuffleSplit(n_splits=self.cv_splits,test_size = self.test_size,random_state = np.random.randint(0,1000000000))
+				cv = ShuffleSplit(n_splits=self.cv_splits,test_size = self.test_size)
 
 
 
@@ -797,10 +817,10 @@ class ScanModel(Log):
 				
 				#print [self._find_index(prediction_out,n,'S')]
 				#search if the same gridsearch has been performed earlier
-
+				
 				mask = util.find_mask(prediction_out,
-					[stocklabel,self.ModelType,'Single',self.ParamGrid,InputFeatures,EarliestDate],
-					['Labels','ModelType','Input','SearchedParameters','ListOfFeatures','StartingDate'])
+					[stocklabel,self.ModelType,'Single',self.ParamGrid,InputFeatures,EarliestDate,self.duration],
+					['Labels','ModelType','Input','SearchedParameters','ListOfFeatures','StartingDate','Duration'])
 
 				tmp = prediction_out.loc[mask]	
 
@@ -813,7 +833,8 @@ class ScanModel(Log):
 						'BestParameterValues':_out[1].values(),'Score':_out[0],
 						'Input':'Single','ListOfFeatures':InputFeatures,
 						'Date':dt.today().date(),
-						'StartingDate':EarliestDate},ignore_index=True)
+						'StartingDate':EarliestDate,
+						'Duration':self.duration},ignore_index=True)
 				
 				else:
 					
@@ -821,13 +842,13 @@ class ScanModel(Log):
 					prediction_out.at[tmp.index.tolist()[0],'BestParameterValues'] = _out[1].values()
 					prediction_out.at[tmp.index.tolist()[0],'Score'] = _out[0]
 					prediction_out.at[tmp.index.tolist()[0],'Date'] = dt.today().date()
-				
+					
 				self.logging("Stock "+stocklabel+": prediction done")
 				print "Label: ",stocklabel, "prediction done"
 			
 			#else:
 			#	"either input or Output file for stock ", _label, " in Index ",_StockIndex, " is missing"
-
+				
 				prediction_out.to_pickle(self.PathData+'predictions/predictions_scan.p')
 				#print prediction_out
 
