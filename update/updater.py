@@ -23,7 +23,7 @@ class StockUpdater(Log):
 	Add description
 
 	"""
-	def __init__(self,FileNameListOfCompanies=None,PathData=None):
+	def __init__(self,FileNameListOfCompanies=None,PathData=None,duration=10,PrizeThresholds=[-5,-2.5,0,2.5,5]):
 
 
 		'''
@@ -53,8 +53,8 @@ class StockUpdater(Log):
 		PrizeThresholds : threshold to categorize relative (in percent) stock evolution within N days
 
 		'''
-		self.PrizeThresholds=[-5,-2.5,0,2.5,5]
-		self.duration = 10 #duration for which to compute classification 
+		self.PrizeThresholds = PrizeThresholds
+		self.duration = duration #duration for which to compute classification 
 
 		if PathData is None:
 			self.PathData = os.path.dirname(os.getcwd())+'/data/'
@@ -84,8 +84,8 @@ class StockUpdater(Log):
 		if os.path.exists(self.PathData+'chart/stocks/') is False:
 			os.makedirs(self.PathData+'chart/stocks/')
 
-		if os.path.exists(self.PathData+'classification/stocks/') is False:
-			os.makedirs(self.PathData+'classification/stocks/')
+		if os.path.exists(self.PathData+'classification/stocks/duration_'+str(self.duration)) is False:
+			os.makedirs(self.PathData+'classification/stocks/duration_'+str(self.duration))
 
 
 	def update_all(self,ListOfTickers = None):
@@ -255,7 +255,7 @@ class StockUpdater(Log):
 				classification = self.get_classification_output(rawData)
 				classification.dropna(inplace=True)
 
-				classification.to_pickle(self.PathData+'classification/stocks/'+stocklabel+'.p')
+				classification.to_pickle(self.PathData+'classification/stocks/duration_'+str(self.duration)+'/'+stocklabel+'.p')
 				self.logging("Stock "+stocklabel+": classification values successfully written")
 				print "classification values for ", stocklabel, " written"
 			else: 
@@ -502,23 +502,6 @@ class StockUpdater(Log):
 		return classifier
 
 
-
-	def _return_relative_roll_mean(self,rawData,window_size,column='Close'):
-
-		'''
-		compute and return relative prize difference w.r.t. rolling mean of given window size
-
-		'''
-		min_ = np.int(window_size * 0.9)
-
-		out = pd.DataFrame(index=rawData.index)
-		rolling_mean = rawData[column].rolling(window=window_size,min_periods=min_).mean()
-		#rolling_mean = pd.Series.rolling(raw_data['Close'],window=window_size,min_periods=min_).mean()
-		#return (raw_data['Close'] - rolling_mean)/rolling_mean
-		out['SMA'+str(window_size)] = (rawData[column] - rolling_mean)/rolling_mean
-		return out
-
-	
 	def _return_relative_bollinger_bands(self,rawData,window_size=20,k=2):
 
 		'''
