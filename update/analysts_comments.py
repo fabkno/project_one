@@ -138,6 +138,7 @@ class AnalystsComments(Log):
 
 
 			db.sort_values(by=['Date'],ascending=False,inplace=True)
+			db.drop_duplicates(inplace=True)
 			db.reset_index(drop=True,inplace=True)
 
 			db.to_pickle(self.PathData + 'analysts_comments/stocks/'+stocklabel+'.p')
@@ -166,17 +167,20 @@ class AnalystsComments(Log):
 		ListOfStrings=  string.split(" ")
 		indices = [i for i, x in enumerate(ListOfStrings) if x == currency]
 		if len(indices) == 0:
-			print("No currency string found ")
+			#print("No currency string found ")
 			return None
-    
-		elif len(indices) > 1:
-			for ind in indices:
-				if ListOfStrings[ind-1].isdigit() is False:
-					continue
-				else:
-					break
+		
 		else:
-			ind = indices[0]
+			for ind in indices:
+				try:
+					float(ListOfStrings[ind-1])
+					break
+
+				except ValueError:
+					if ind == indices[-1]:
+						return None
+					else:
+						continue
 
 		target = float(ListOfStrings[ind-1])
 		formerTarget = None
