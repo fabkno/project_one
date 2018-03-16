@@ -71,7 +71,7 @@ class AnalystsComments(Log):
 			if '.' in stocklabel:
 				currency = 'Euro'
 			else:
-				currency = 'US-Dollar'
+				currency = ['US-Dollar','USD']
 
 			'''
 			start looping through all subwebsite (int_page number on finanzen.net),
@@ -100,9 +100,15 @@ class AnalystsComments(Log):
 					tds = l.findAll('td')
 					
 					s = tds[0].get_text().split('.')
-					if len(s[2]) == 2:
-						s[2] = "20"+s[2]
-					date = datetime.datetime(int(s[2]),int(s[1]),int(s[0])).date()
+
+					if s[0][-3:] == 'Uhr':
+						date = datetime.datetime.today().date()
+
+					else:
+						if len(s[2]) == 2:
+							s[2] = "20"+s[2]
+						date = datetime.datetime(int(s[2]),int(s[1]),int(s[0])).date()
+
 
 					Category = tds[1].get_text().split(' ')[1]
 					Analyst = tds[2].get_text()
@@ -114,7 +120,7 @@ class AnalystsComments(Log):
 					detailedPage = requests.get(sub_url)
 					soupNew = BeautifulSoup(detailedPage.content,'html.parser')
 
-					string= soupNew.findAll("p")[0].get_text()
+					string= soupNew.findAll("div",{"class":" teaser teaser-xs color-news"})[0].get_text()
 
 					dic = self._get_phrase(string,currency)
 					if dic is None:
@@ -165,7 +171,7 @@ class AnalystsComments(Log):
     	'''
 		string = string.replace(',','.')
 		ListOfStrings=  string.split(" ")
-		indices = [i for i, x in enumerate(ListOfStrings) if x == currency]
+		indices = [i for i, x in enumerate(ListOfStrings) if x in currency]
 		if len(indices) == 0:
 			#print("No currency string found ")
 			return None
