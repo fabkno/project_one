@@ -23,7 +23,7 @@ class StockUpdater(Log):
 	Add description
 
 	"""
-	def __init__(self,FileNameListOfCompanies=None,PathData=None,duration=10,PrizeThresholds=[-5,-2.5,0,2.5,5]):
+	def __init__(self,duration,FileNameListOfCompanies=None,PathData=None,PrizeThresholds=[-5,-4,-3,-2,-1,0,1,2,3,4,5]):
 
 
 		'''
@@ -313,7 +313,7 @@ class StockUpdater(Log):
 		for _feature in ListOfChartFeatures:
 			
 			if _feature[0:2] == 'GD':	
-				out = ct.rolling_mean(rawData,window_size=np.int(_feature[2:]),column='Close')
+				out = ct.rolling_mean(rawData,window_size=np.int(_feature[2:]),column='Close',relative=True)
 				output[_feature] = out['SMA'+str(_feature[2:])]
 				output[_feature+'X'] =ct.get_average_for_crossing_direction(out['SMA'+str(_feature[2:])])
 				#output['dot'+_feature] = ct.get_average_slope(out['SMA'+str(_feature[2:])],relative=True)
