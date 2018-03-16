@@ -29,7 +29,7 @@ class Stock_Prediction_Day(Resource):
 		PredictionDay = dt.strptime(predictiondate,'%Y-%m-%d').date()
 		
 		conn = db_connect.connect()
-		query = conn.execute("select * from prediction10BT where label = ? and predictionday = ?",(stock_label,PredictionDay))
+		query = conn.execute("select * from prediction3BT where label = ? and predictionday = ?",(stock_label,PredictionDay))
 
 		tmp = query.fetchone()[3:]
 
@@ -44,7 +44,7 @@ class Stock_Prediction_Day_All(Resource):
 
 		conn = db_connect.connect()
 		
-		query = conn.execute("select * from prediction10BT where label = ?",(stock_label,))
+		query = conn.execute("select * from prediction3BT where label = ?",(stock_label,))
 
 		cols = query.keys()
 
@@ -77,7 +77,7 @@ class Top_Predictions(Resource):
 
 		conn = db_connect.connect()
 
-		query = conn.execute("select label,probcat0,probcat1,probcat2,probcat3,probcat4,probcat5 from prediction10BT where predictionday = ?",(PredictionDay,))
+		query = conn.execute("select label,probcat0,probcat1,probcat2,probcat3,probcat4,probcat5,probcat6,probcat7,probcat8,probcat9,probcat10,probcat11 from prediction3BT where predictionday = ?",(PredictionDay,))
 		
 		tmp = query.cursor.fetchall()
 		labels= np.array([_tmp[0] for _tmp in tmp])
