@@ -176,7 +176,7 @@ def URL_online(URL):
 		return return_values
 
 
-def find_category(relative_prize,thresholds=np.array([-5,-2.5,0,2.5,5])):
+def find_category(relative_prize,thresholds=np.array([-5,-4,-3,-2,-1,0,1,2,3,4,5])):
 
 	tmp = np.where(relative_prize <= thresholds)[0]
 
