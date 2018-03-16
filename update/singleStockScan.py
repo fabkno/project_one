@@ -18,7 +18,7 @@ class ModelPrediction(Log):
 	'''
 	Add description ...
 	'''
-	def __init__(self,FileNameListOfCompanies=None,PathData=None,n_jobs=-2,prediction_window=10):
+	def __init__(self,duration,FileNameListOfCompanies=None,PathData=None,n_jobs=-2):
 
 		Log.__init__(self,PathData=PathData)
 
@@ -38,17 +38,18 @@ class ModelPrediction(Log):
 				self.logging("ValueError: List :"+FileNameListOfCompanies + "does not exists in " +self.PathData + "company_lists/")
 				raise ValueError('List: '+FileNameListOfCompanies + ' does not exists in' +self.PathData + 'company_lists/')
 
-		self.PredictionWindow= prediction_window
+		self.duration= duration
 		self.ListOfCompanies = pd.read_csv(self.PathData+'company_lists/'+self.FileNameListOfCompanies,index_col='Unnamed: 0')
 		self.n_jobs = n_jobs
 		if os.path.exists(self.PathData + 'predictions/stocks/') is False:
 			os.makedirs(self.PathData + 'predictions/stocks/')
 
-		if os.path.isfile(self.PathData+'predictions/predictions_scan.p') is True:
-			self.ListOfPredictions = pd.read_pickle(self.PathData+'predictions/predictions_scan.p')
+		if os.path.isfile(self.PathData+'predictions/hyperparameter_scan.p') is True:
+			self.ListOfPredictions = pd.read_pickle(self.PathData+'predictions/hyperparameter_scan.p')
 
 		else:
-			self.ListOfPredictions = None
+			raise IOError('List with hyperparameters not found ')
+
 
 		if os.path.exists(self.PathData + 'models/stocks/') is False:
 			os.makedirs(self.PathData + 'models/stocks/')
@@ -56,15 +57,16 @@ class ModelPrediction(Log):
 		if os.path.exists(self.PathData + 'simulations/stocks/') is False:
 			os.makedirs(self.PathData + 'simulations/stocks/')
 
+
 		self.UpperCategoryBoundaries = np.array([-5,-2.5,0,2.5,5,100])*0.01
 		self.LowerCategoryBoundaries = np.array([-50,-5,-2.5,0,2.5,5])*0.01
 
-
-
-	def writeToPandasDataBase(self,prediction,business_days=10):
+		self.UpperCategoryBoundaries = np.array([-5,-4,-3,-2,-1,0,1,2,3,4,5,100])*0.01
+		self.LowerCategoryBoundaries = np.array([-50,-5,-4,-3,-2,-1,0,1,2,3,4,5])*0.01
+	def writeToPandasDataBase(self,prediction,):
 
 		try:
-			predictionsFull = pd.read_pickle(self.PathData+'predictions/stocks/full_predictions_'+str(business_days)+'BT.p')
+			predictionsFull = pd.read_pickle(self.PathData+'predictions/stocks/full_predictions_'+str(self.duration)+'BT.p')
 
 			#print predictionsFull.tail(30)[['PredictionDay','ValidationDay','TrueCategory','PrizeAtPrediction','PrizeAtValidation']]
 			#go through all made predictions
@@ -73,7 +75,8 @@ class ModelPrediction(Log):
 				#look in prediction data base if prediction at same day exists
 				tmp = predictionsFull.loc[(predictionsFull['Labels'] == prediction['Labels'][n]) & 
 							(predictionsFull['PredictionDay'] == prediction['PredictionDay'][n]) & 
-							(predictionsFull['ValidationDay'] == prediction['ValidationDay'][n])]
+							(predictionsFull['ValidationDay'] == prediction['ValidationDay'][n]) &
+							(predictionsFull['ModelType'] == prediction['ModelType'][n])]
 				# if no simply append prediction 
 				if len(tmp) == 0: 
 					#print "added"
@@ -110,11 +113,11 @@ class ModelPrediction(Log):
 
 			predictionsFull.reset_index(drop=True,inplace=True)
 			#print predictionsFull.tail(30)[['PredictionDay','ValidationDay','TrueCategory','PrizeAtPrediction','PrizeAtValidation']]
-			predictionsFull.to_pickle(self.PathData+'predictions/stocks/full_predictions_'+str(business_days)+'BT.p')
+			predictionsFull.to_pickle(self.PathData+'predictions/stocks/full_predictions_'+str(self.duration)+'BT.p')
 
 		except IOError:			
 			#if data base does not exisit add new database
-			prediction.to_pickle(self.PathData+'predictions/stocks/full_predictions_'+str(business_days)+'BT.p')	
+			prediction.to_pickle(self.PathData+'predictions/stocks/full_predictions_'+str(self.duration)+'BT.p')	
 
 		self.logging('List of Predictions added to data base complete')
 		#print('List of Predictions added to data base complete')
@@ -157,10 +160,15 @@ class ModelPrediction(Log):
 
 		DailyPredictions = pd.DataFrame(columns=['Labels','LastTrainingsDate','PredictionDay','ValidationDay',
 			'PrizeAtPrediction','PrizeAtValidation','RelativePrizeChange',
-			'TrueCategory','PredictedCategory','PredictedProbabilities','PredictedUpperPrize','PredictedLowerPrize','ModelType','ModelParameters','Timestamp'],dtype=object)
+			'TrueCategory','PredictedCategory','PredictedProbabilities','PredictedUpperPrize','PredictedLowerPrize','ModelType','ModelParameters','Timestamp','Duration'],dtype=object)
 		
 
 		for stocklabel in ListOfTickers:
+
+			if '.' in stocklabel:
+				bday = bday_ger
+			else:
+				bday = bday_us
 			
 			DayOfPrediction = DoP
 
@@ -212,12 +220,9 @@ class ModelPrediction(Log):
 				except KeyError:
 					self.logging("KeyError: Stock "+stocklabel+": no scaling object found, continue without scaling data")
 					pass
+			
+			DayOfValidation = (DayOfPrediction+self.duration*bday).date()
 
-			if '.' in stocklabel:
-				DayOfValidation = (DayOfPrediction+self.PredictionWindow*bday_ger).date()
-			else:
-				DayOfValidation = (DayOfPrediction+self.PredictionWindow*bday_us).date()
-		
 			## To do check business days for stock exchange
 			model_prediction = model.predict_proba(model_input)[0]
 			DailyPredictions = DailyPredictions.append({'Labels':stocklabel,'LastTrainingsDate':tmp['LastTrainingsDate'],
@@ -230,7 +235,8 @@ class ModelPrediction(Log):
 				'PredictedLowerPrize':np.round(input_data['Close'].values[0]*(1+self.LowerCategoryBoundaries[np.argmax(model_prediction)]),decimals=2),
 				'ModelType':modeltype,
 				'Timestamp':dt.now().strftime('%Y-%m-%d %H:%M'),
-				'ModelParameters':tmp['ModelParameters']},ignore_index=True)
+				'ModelParameters':tmp['ModelParameters'],
+				'Duration':self.duration},ignore_index=True)
 			
 			self.logging("Stock "+stocklabel+": daily prediction done")
 
@@ -245,9 +251,10 @@ class ModelPrediction(Log):
 		if DayOfPrediction is None:
 			DayOfPrediction = dt.today().date()
 
-		self.ComputeStockModels(ListOfTickers,LastTrainingsDate=(DayOfPrediction-BDay(self.PredictionWindow)).date())
+		self.ComputeStockModels(ListOfTickers,LastTrainingsDate=(DayOfPrediction-BDay(self.duration)).date())
 		predictions=self.PredictStocks(ListOfTickers,DayOfPrediction)
-		
+				
+
 		self.writeToPandasDataBase(predictions)
 
 		if double_save == True:
@@ -286,7 +293,7 @@ class ModelPrediction(Log):
 
 		for stocklabel in ListOfTickers:
 		
-			params= self.read_modeling_parameters(stocklabel)
+			params= self.read_modeling_parameters(stocklabel,duration=self.duration)
 			if params is None:
 			 	self.logging('No modeling parameters found stock: '+stocklabel)
 			 	continue
@@ -297,7 +304,7 @@ class ModelPrediction(Log):
 					#try if input/output for model exist
 					try:
 						input_data = pd.read_pickle(self.PathData + 'chart/stocks/'+stocklabel+'.p')					
-						classification_data = pd.read_pickle(self.PathData+'classification/stocks/'+stocklabel+'.p')
+						classification_data = pd.read_pickle(self.PathData+'classification/stocks/duration_'+str(self.duration)+'/'+stocklabel+'.p')
 
 
 					except IOError:
@@ -348,15 +355,20 @@ class ModelPrediction(Log):
 
 		'''
 
+		if '.' in Ticker:
+			bday = bday_ger
+		else:
+			bday = bday_us
+
 		if FinalDateSimulation is None:
 			FinalDateSimulation = dt.today().date()
 		scaling = None
 
 		Validations = pd.DataFrame(columns=['Labels','LastTrainingsDate','PredictionDay','ValidationDay','PrizeAtPrediction','PrizeAtValidation',
 			'RelativePrizeChange','TrueCategory','PredictedCategory','PredictedProbabilities','PredictedUpperPrize','PredictedLowerPrize',
-			'ModelType','ModelParameters','Timestamp'],dtype=object)
+			'ModelType','ModelParameters','Timestamp','Duration'],dtype=object)
 
-		params= self.read_modeling_parameters(Ticker,ModelType=ModelType)
+		params= self.read_modeling_parameters(Ticker,duration=self.duration,ModelType=ModelType)
 		if params is None:
 			self.logging("ValueError: Stock "+Ticker+": parameter values not found in prediction data base")
 			raise ValueError("Parameter values for stock",Ticker,"not found in prediction data base")
@@ -367,7 +379,7 @@ class ModelPrediction(Log):
 				#try if input/output for model exist
 		try:
 			input_data = pd.read_pickle(self.PathData + 'chart/stocks/'+Ticker+'.p')					
-			classification_data = pd.read_pickle(self.PathData+'classification/stocks/'+Ticker+'.p')
+			classification_data = pd.read_pickle(self.PathData+'classification/stocks/duration_'+str(self.duration)+'/'+Ticker+'.p')
 
 
 		except IOError:
@@ -378,21 +390,33 @@ class ModelPrediction(Log):
 		_starting_dates_simulations =  classification_data.loc[(classification_data['Date']>=StartingDateSimulation) &(classification_data['Date']<=FinalDateSimulation)]['Date'].tolist()
 		
 		for _starting_date in _starting_dates_simulations:
+
 		#print len(input_data.loc[(input_data['Date']>=StartingDateSimulation) &(input_data['Date']<=FinalDateSimulation)]),np.busday_count(FinalDateSimulation,StartingDateSimulation)
 
 
 			inputSimulation= input_data.loc[(input_data['Date']>=StartingDateTraining) & (input_data['Date']<=_starting_date)]
 			classificationSimulation =classification_data.loc[(classification_data['Date']>=StartingDateTraining) & (classification_data['Date']<=_starting_date)]
 
-			effectiveStartingDate= inputSimulation.tail(1)['Date'].tolist()[-1].date()
+			try: 
+				effectiveStartingDate= inputSimulation.tail(1)['Date'].tolist()[-1].date()
+
+			except IndexError:
+				print("Stock: "+Ticker +" StartingDate of simulations is before first data point")
+				continue
 
 		 	if ModelType == 'RFC':
+		 		if len(inputSimulation) < 100:
+		 			print("Stock: "+Ticker + " Not enough data for training found (<100 data points)")	
+		 			continue
 				model_ob,LastTrainingsDate = self.SingleRFC(inputSimulation,classificationSimulation,ModelingParameters,ListOfFeatures,
-					FirstTrainingsDate=None,LastTrainingsDate=(effectiveStartingDate-BDay(self.PredictionWindow)).date(),n_estimators=100)
+					FirstTrainingsDate=None,LastTrainingsDate=(effectiveStartingDate-self.duration * bday).date(),n_estimators=100)
 
 			elif ModelType == "SVM" and scaled == True:
+				if len(inputSimulation) < 100:
+		 			print("Stock: "+Ticker + " Not enough data for training found (<100 data points)")	
+		 			continue
 				model_ob,LastTrainingsDate,scaling = self.SingleSVM(inputSimulation,classificationSimulation,ModelingParameters,ListOfFeatures,
-					FirstTrainingsDate=None,LastTrainingsDate=(effectiveStartingDate-BDay(self.PredictionWindow)).date(),scaled=scaled)
+					FirstTrainingsDate=None,LastTrainingsDate=(effectiveStartingDate-self.duration * bday).date(),scaled=True)
 
 			index_tmp = input_data.loc[input_data['Date'] == effectiveStartingDate].index.tolist()[0]
 			DayOfPrediction = input_data.loc[index_tmp]['Date'].date()
@@ -406,15 +430,15 @@ class ModelPrediction(Log):
 
 			prediction= model_ob.predict_proba(model_input.reshape(1,-1))
 
-			if '.' in Ticker:
-				DayOfValidation = (DayOfPrediction+self.PredictionWindow*bday_ger).date()
-			else:
-				DayOfValidation = (DayOfPrediction+self.PredictionWindow*bday_us).date()
 
+			DayOfValidation = (DayOfPrediction+self.duration*bday).date()
+			
 			#print classification
 			close_at_predictionday = input_data.loc[index_tmp]['Close']
-
-			close_at_validationday = input_data.loc[input_data['Date'] == DayOfValidation]['Close'].values[0]
+			try:
+				close_at_validationday = input_data.loc[input_data['Date'] == DayOfValidation]['Close'].values[0]
+			except IndexError:
+				close_at_validationday=np.NaN
 
 			Validations = Validations.append({'Labels':Ticker,
 				'PredictionDay':DayOfPrediction,
@@ -430,14 +454,19 @@ class ModelPrediction(Log):
 				'PredictedLowerPrize':np.round(close_at_predictionday*(1+self.LowerCategoryBoundaries[np.argmax(prediction)]),decimals=2),
 				'ModelType':ModelType,
 				'Timestamp':dt.now().strftime('%Y-%m-%d %H:%M'),
-				'ModelParameters':ModelingParameters
+				'ModelParameters':ModelingParameters,
+				'Duration':self.duration
 				},ignore_index=True)
 
-				#print Validations
+		
+		#print Validations
 		#return Validations
-		#self.writeToPandasDataBase(Validations)
+		
+		self.writeToPandasDataBase(Validations)
 
 		Validations.to_pickle(self.PathData + 'simulations/stocks/'+Ticker+'_prediction.p')
+
+
 		self.logging("Stock: "+Ticker+" simlation finished from "+str(StartingDateSimulation) + " until "+str(_starting_dates_simulations[-1].date())+ " with modeltype: "+ModelType)
 
 		print "Finished stock simulation for stock: "+Ticker+" from "+str(StartingDateSimulation) + " until "+str(_starting_dates_simulations[-1].date())+" with modeltype: "+ModelType
@@ -536,13 +565,15 @@ class ModelPrediction(Log):
 
 		return RFC,InputData.tail(1)['Date'].tolist()[0].date()
 
-	def read_modeling_parameters(self,tickerSymbol,ModelType=None):
+	def read_modeling_parameters(self,tickerSymbol,duration,ModelType=None):
 		'''
 		reads from predictions.csv that highest score parameter set
 
 		Parameters
 		------------
 		tickerSymbol : string gives yahoo ticker symbol for stock
+
+		duration : int number of prediction days
 
 		ModelType : string modeltype to seach in ListOfPredictions
 
@@ -559,7 +590,7 @@ class ModelPrediction(Log):
 
 		tickerSymbol = 'BOSS.DE'
 		
-		s = self.read_modeling_parameters(tickerSymbol)
+		s = self.read_modeling_parameters(tickerSymbol,duration=3)
 		>>> s[0]
 		>>> {'max_features': 'auto', 'max_depth': 70} #dictionary of hyper parameters for RFC 
 		>>> s[1]
@@ -568,19 +599,20 @@ class ModelPrediction(Log):
 		>>> datetime.date(2010, 1, 1) #Earliest time at which trainings data was used
 
 		'''
-		if self.ListOfPredictions is None:
-			self.logging("ValueError: No list of predictions provided in "+self.PathData+"predictions/predictions_scan.p")
-			raise ValueError('No list of predictions provided in '+self.PathData+'predictions/predictions_scan.p')
 
+	
 		if ModelType is None:
-			tmp =self.ListOfPredictions.loc[(self.ListOfPredictions['Labels'] == tickerSymbol) ][['Score','BestParameters','BestParameterValues','StartingDate','ListOfFeatures','ModelType']]
+			tmp =self.ListOfPredictions.loc[(self.ListOfPredictions['Labels'] == tickerSymbol) & (self.ListOfPredictions['Duration'] == duration) ][['Score','BestParameters','BestParameterValues','StartingDate','ListOfFeatures','ModelType']]
+			
 			if len(tmp) == 0:
 				self.logging("Stock "+tickerSymbol+": No matching ticker found")
 				print 'No matching ticker found for', tickerSymbol
 				return None
 		
 		else:
-			tmp =self.ListOfPredictions.loc[(self.ListOfPredictions['Labels'] == tickerSymbol) & (self.ListOfPredictions['ModelType'] == ModelType)][['Score','BestParameters','BestParameterValues','StartingDate','ListOfFeatures','ModelType']]
+			tmp =self.ListOfPredictions.loc[(self.ListOfPredictions['Labels'] == tickerSymbol) &
+			 (self.ListOfPredictions['ModelType'] == ModelType) &
+			  (self.ListOfPredictions['Duration'] == duration)][['Score','BestParameters','BestParameterValues','StartingDate','ListOfFeatures','ModelType']]
 			if len(tmp) == 0:
 				self.logging("Stock "+tickerSymbol+": No matching ticker found for given modeltype: "+ModelType)
 				print 'No matching ticker found for', tickerSymbol, 'with given modeltype: '+ModelType
@@ -680,7 +712,7 @@ class ScanModel(Log):
 
 		elif self.ModelType == 'SVM':
 			if GridParameters is None:
-				self.ParamGrid = {'C':[1e-2,1e-1,0.25,0.5,0.75,1,2.5,5,7.5,1e1,1e2],'gamma':[1e-4,5e-5,1e-3,5e-3,1e-2,5e-2,1e-1,1,10],'kernel':['rbf']}
+				self.ParamGrid = {'C':[1e-2,1e-1,0.25,0.5,0.75,1,2.5,5,7.5,1e1,1e2],'gamma':[1e-5,1e-4,5e-4,1e-3,5e-3,1e-2,5e-2,1e-1,1,10],'kernel':['rbf']}
 				
 			else:
 				self.ParamGrid
@@ -724,7 +756,7 @@ class ScanModel(Log):
 	# To do singel RFC, single SVM, gridSearch SVM
 	def StockGridModelingAll(self,scaled=True):
 
-		self.StockGridModeling(ListOfTickers=self.ListOfCompanies['Yahoo Ticker'],scaled=True,EarliestDate=self.EarliestDate)
+		self.StockGridModeling(ListOfTickers=self.ListOfCompanies['Yahoo Ticker'],scaled=scaled,EarliestDate=self.EarliestDate)
 
 	def StockGridModeling(self,ListOfTickers,scaled=True,EarliestDate=None):
 
@@ -746,11 +778,11 @@ class ScanModel(Log):
 
 		'''
 
-		if os.path.isfile(self.PathData+'predictions/predictions_scan.p') == False:	
+		if os.path.isfile(self.PathData+'predictions/hyperparameter_scan.p') == False:	
 		 	prediction_out = pd.DataFrame(columns=['Labels','ModelType','SearchedParameters','BestParameters','BestParameterValues','Score','Input','ListOfFeatures','Date','StartingDate','Duration'],dtype=object)
-			prediction_out.to_pickle(self.PathData+'predictions/predictions_scan.p')
+			prediction_out.to_pickle(self.PathData+'predictions/hyperparameter_scan.p')
 
-		prediction_out = pd.read_pickle(self.PathData+'predictions/predictions_scan.p')
+		prediction_out = pd.read_pickle(self.PathData+'predictions/hyperparameter_scan.p')
 
 		if EarliestDate is None:
 			EarliestDate = self.EarliestDate
@@ -761,7 +793,7 @@ class ScanModel(Log):
 			pass
 
 		for stocklabel in ListOfTickers:
-								
+											
 			if (os.path.isfile(self.PathData+'chart/stocks/'+stocklabel+'.p') == False) or (os.path.isfile(self.PathData +'classification/stocks/duration_'+str(self.duration)+'/'+stocklabel+'.p') == False):
 				self.logging("Stock "+stocklabel+": chart or classification for duration "+str(self.duration)+" data does not exist")
 				print "Stock "+stocklabel+": chart or classification for duration "+str(self.duration)+" data does not exist"
@@ -849,7 +881,7 @@ class ScanModel(Log):
 			#else:
 			#	"either input or Output file for stock ", _label, " in Index ",_StockIndex, " is missing"
 				
-				prediction_out.to_pickle(self.PathData+'predictions/predictions_scan.p')
+				prediction_out.to_pickle(self.PathData+'predictions/hyperparameter_scan.p')
 				#print prediction_out
 
 
