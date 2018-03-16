@@ -7,7 +7,17 @@ required packages besides obvious ones:
 
 - pandas 0.22
 
+- flask-restful 
 
+- sqlalchemy 1.2.3
+
+- flask-jsonpify
+
+- scheduler 0.5
+
+- tensorflow 1.0
+
+- keras v. ...
 Some fixes:
 
 - incorporated national holidays. So far Germany and US
