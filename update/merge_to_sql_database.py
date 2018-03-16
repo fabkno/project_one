@@ -3,175 +3,215 @@ import numpy as np
 import sqlite3 as sql
 import os,sys
 import util
-
+from logger import Log
 from datetime import datetime as dt
 
-prediction_path = '../data/predictions/stocks/'
+class MergeToSQL(Log):
 
-pandasDBFileName = prediction_path +'full_predictions_10BT.p'
+	def __init__(self,duration,PathData=None):
 
-if os.path.isfile(pandasDBFileName) == False:
-	raise IOError('File in :'+pandasDBFileName+' does not exist')
+		Log.__init__(self,PathData=PathData)
 
-#check if database exists other wise create empty db
-if os.path.isfile(prediction_path +'predictions.db') == False:
+		self.duration = duration
+
+		if PathData is None:
+			self.PathData = os.path.dirname(os.getcwd())+'/data/'
+		else:
+			self.PathData = PathData
+
+		self.PathPrediction = self.PathData+'/predictions/stocks/'
+
+		self.pandasDBFileName = self.PathPrediction + 'full_predictions_'+str(self.duration)+'BT.p'
+
 	
-	db = sql.connect(prediction_path+'predictions.db')
-
-	cursor = db.cursor()
-
-	cursor.execute('''CREATE TABLE prediction10BT(id INTEGER PRIMARY KEY,
-	Label TEXT,
-	LastTrainingsDate DOB,
-	PredictionDay DOB,
-	ValidationDay DOB,
-	PrizeAtPrediction FLOAT,
-	PrizeAtValidation FLOAT,
-	RelativePrizeChange FLOAT,
-	TrueCategory INT,
-	PredictedCategory INT,
-	PredictedUpperPrize FLOAT,
-	PredictedLowerPrize FLOAT,
-	ProbCat0 FLOAT,
-	ProbCat1 FLOAT,
-	ProbCat2 FLOAT,
-	ProbCat3 FLOAT,
-	ProbCat4 FLOAT,
-	ProbCat5 FLOAT,
-	Timestamp DOB)''')
-	db.commit()
-
-	db.close()
+		if os.path.isfile(self.pandasDBFileName) == False:
+			raise IOError('File in :'+self.pandasDBFileName+' does not exist')		
 
 
 
-
-def get_tuple_for_db(df):
-   '''
-   get date from pandas dataFrame and return tuple containing data
-   
-   values for database include: Label,LastTrainingsDate,PredictionDay,ValidationDay
-                                PrizeAtPrediction,PrizeAtValidation,RelativePrizeChange
-                                TrueCategory, PredictedCategory, Prob Cat 0, 1,2,3,4,5, Timestamp
-   
-   Parameters
-   -------------
-   df : pandas Data sequence
-   
-   Returns
-   -------------
-   tuple
-   '''
-   if len(df.shape) >1:
-        raise ValueError('pandas data frame cannot have multiple rows, it must be a pandas sequence')
-
-   return tuple(df.values[0:9]) \
-          +tuple(df.values[10:12])\
-          +tuple([np.round(df.values[9][i],decimals=3) for i in range(6)])+tuple(df.values[14:15])
+		#check if database exists other wise create empty db
+		if os.path.isfile(self.PathPrediction +'predictions.db') == False:		
+			db = sql.connect(self.PathPrediction+'predictions.db')
+			db.close()
 
 
+		#check if appropriate tables exists otherwise create them
+		else:
+			db = sql.connect(self.PathPrediction+'predictions.db')
 
-def check_if_entry_exists(db,data):
-    #check if entry exists in database
-    
-    cursor = db.cursor()
-    Label = data['Labels']
-    PredictionDay = data['PredictionDay']   
-        
-    x = db.cursor().execute('''SELECT label,predictionday FROM prediction10BT WHERE label=? AND predictionday=?''',(Label,PredictionDay))
-    
-    if len(x.fetchall()) == 0:
-		return False
-    else: return True
+			cursor = db.cursor()
+			cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+
+			tableNames = cursor.fetchall()
+
+			if np.all(np.array([x[0] == "prediction"+str(self.duration)+"BT" for x in tableNames]) == False):
+
+				cursor.execute('''CREATE TABLE prediction'''+str(self.duration)+'''BT(id INTEGER PRIMARY KEY,
+				Label TEXT,
+				LastTrainingsDate DOB,
+				PredictionDay DOB,
+				ValidationDay DOB,
+				PrizeAtPrediction FLOAT,
+				PrizeAtValidation FLOAT,
+				RelativePrizeChange FLOAT,
+				TrueCategory INT,
+				PredictedCategory INT,
+				PredictedUpperPrize FLOAT,
+				PredictedLowerPrize FLOAT,
+				ProbCat0 FLOAT,
+				ProbCat1 FLOAT,
+				ProbCat2 FLOAT,
+				ProbCat3 FLOAT,
+				ProbCat4 FLOAT,
+				ProbCat5 FLOAT,
+				ProbCat6 FlOAT,
+				ProbCat7 FLOAT,
+				ProbCat8 FLOAT,
+				ProbCat9 FLOAT,
+				ProbCat10 FLOAT,
+				ProbCat11 FLOAT,
+				Timestamp DOB)''')
+				db.commit()
+
+			db.close()
 
 
-def add_PrizeAtValidation_is_nan(db,data):
-	'''
-	check if db contains empty prizeatvalidation, relativeprizechange and truecategory for given predictionday in data
 
-	for example: db contains for entry predictionday = 2017-01-12 no values for validationday = 2017-01-26
-	However, the pandas data frame (data) contains data about the predictionday = 2017-01-26 than use these information to update db for predictionday = 2017-01-12
-	'''
+	def get_tuple_for_db(self,df):
+		'''
+		get date from pandas dataFrame and return tuple containing data
 
-	Label = data['Labels']
+		values for database include: Label,LastTrainingsDate,PredictionDay,ValidationDay
+		                            PrizeAtPrediction,PrizeAtValidation,RelativePrizeChange
+		                            TrueCategory, PredictedCategory, Prob Cat 0, 1,2,3,4,5, Timestamp
 
-	ValidationDay = data['PredictionDay']
-	PrizeAtValidation = data['PrizeAtPrediction']
+		Parameters
+		-------------
+		df : pandas Data sequence
 
-	x = db.cursor().execute('''SELECT prizeatprediction,prizeatvalidation FROM prediction10BT WHERE label=? AND validationday =?''',(Label,ValidationDay))
+		Returns
+		-------------
+		tuple
+		'''
+		if len(df.shape) >1:
+			raise ValueError('pandas data frame cannot have multiple rows, it must be a pandas sequence')
+		
+		return tuple(df.values[0:9]) \
+				+tuple(df.values[10:12])\
+				+tuple([np.round(df.values[9][i],decimals=3) for i in range(12)])+tuple(df.values[14:15])
 
-	values = x.fetchone()
 
-	if values is None:
-		return
 
-	elif values[1] is None:
+	def check_if_entry_exists(self,db,data):
+	    #check if entry exists in database
+	    
+	    cursor = db.cursor()
+	    Label = data['Labels']
+	    PredictionDay = data['PredictionDay']   
+	        
+	    x = db.cursor().execute('''SELECT label,predictionday FROM prediction'''+str(self.duration)+'''BT WHERE label=? AND predictionday=?''',(Label,PredictionDay))
+	    
+	    if len(x.fetchall()) == 0:
+			return False
+	    else: return True
 
-		db_PrizeAtPrediction = values[0]
-		db_PrizeAtValidation= PrizeAtValidation
-		db_RelativePrizeChange = np.round((db_PrizeAtValidation - db_PrizeAtPrediction)/db_PrizeAtPrediction *100.,decimals=3)
-		db_TrueCategory = util.find_category(db_RelativePrizeChange)
 
-		db.cursor().execute('''UPDATE prediction10BT SET prizeatvalidation=? WHERE label=? and validationday=?''',(db_PrizeAtValidation, Label,ValidationDay))
-		db.cursor().execute('''UPDATE prediction10BT SET relativeprizechange=? WHERE label=? and validationday=?''',(db_RelativePrizeChange, Label,ValidationDay))
-		db.cursor().execute('''UPDATE prediction10BT SET truecategory=? WHERE label=? and validationday=?''',(db_TrueCategory, Label,ValidationDay))
+	def add_PrizeAtValidation_is_nan(self,db,data):
+		'''
+		check if db contains empty prizeatvalidation, relativeprizechange and truecategory for given predictionday in data
+
+		for example: db contains for entry predictionday = 2017-01-12 no values for validationday = 2017-01-26
+		However, the pandas data frame (data) contains data about the predictionday = 2017-01-26 than use these information to update db for predictionday = 2017-01-12
+		'''
+
+		Label = data['Labels']
+
+		ValidationDay = data['PredictionDay']
+		PrizeAtValidation = data['PrizeAtPrediction']
+
+		x = db.cursor().execute('''SELECT prizeatprediction,prizeatvalidation FROM prediction'''+str(self.duration)+'''BT WHERE label=? AND validationday =?''',(Label,ValidationDay))
+
+		values = x.fetchone()
+
+		if values is None:
+			return
+
+		elif values[1] is None:
+
+			db_PrizeAtPrediction = values[0]
+			db_PrizeAtValidation= PrizeAtValidation
+			db_RelativePrizeChange = np.round((db_PrizeAtValidation - db_PrizeAtPrediction)/db_PrizeAtPrediction *100.,decimals=3)
+			db_TrueCategory = util.find_category(db_RelativePrizeChange)
+
+			db.cursor().execute('''UPDATE prediction'''+str(self.duration)+'''BT SET prizeatvalidation=? WHERE label=? and validationday=?''',(db_PrizeAtValidation, Label,ValidationDay))
+			db.cursor().execute('''UPDATE prediction'''+str(self.duration)+'''BT SET relativeprizechange=? WHERE label=? and validationday=?''',(db_RelativePrizeChange, Label,ValidationDay))
+			db.cursor().execute('''UPDATE prediction'''+str(self.duration)+'''BT SET truecategory=? WHERE label=? and validationday=?''',(db_TrueCategory, Label,ValidationDay))
+
+			db.commit()
+
+		
+			return 
+
+	def add_entry(self,db,pandasDB):
+
+		'''
+		adds entry to data base
+		'''
+		datatuple = self.get_tuple_for_db(pandasDB)
+		
+		db.cursor().execute('''INSERT INTO prediction'''+str(self.duration)+'''BT(Label,
+						LastTrainingsDate,
+						PredictionDay,
+						ValidationDay,
+						PrizeAtPrediction,
+						PrizeAtValidation,
+						RelativePrizeChange,
+						TrueCategory,
+						PredictedCategory,
+						PredictedUpperPrize,
+						PredictedLowerPrize,
+						ProbCat0,
+						ProbCat1,
+						ProbCat2,
+						ProbCat3,
+						ProbCat4,
+						ProbCat5,
+						ProbCat6,
+						ProbCat7,
+						ProbCat8,
+						ProbCat9,
+						ProbCat10,
+						ProbCat11,
+						Timestamp
+						)
+						VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''', datatuple)
 
 		db.commit()
-		return 
 
-def add_entry(db,pandasDB):
+	def compare_databases(self,ListOfLabels='all',ListOfPredictionDays='all'):
 
-	'''
-	adds entry to data base
-	'''
-	datatuple = get_tuple_for_db(pandasDB)
-	db.cursor().execute('''INSERT INTO prediction10BT(Label,
-					LastTrainingsDate,
-					PredictionDay,
-					ValidationDay,
-					PrizeAtPrediction,
-					PrizeAtValidation,
-					RelativePrizeChange,
-					TrueCategory,
-					PredictedCategory,
-					PredictedUpperPrize,
-					PredictedLowerPrize,
-					ProbCat0,
-					ProbCat1,
-					ProbCat2,
-					ProbCat3,
-					ProbCat4,
-					ProbCat5,
-					Timestamp
-					)
-					VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''', datatuple)
+		df = pd.read_pickle(self.pandasDBFileName)
 
-	db.commit()
+		if ListOfLabels is 'all':
+			ListOfLabels = list(set(df['Labels'].tolist()))
+		
+		#establish connection to db
+		db = sql.connect(self.PathPrediction+'predictions.db')
+		
 
-def compare_databases(ListOfLabels='all',ListOfPredictionDays='all'):
+		for label in ListOfLabels:
 
-	df = pd.read_pickle(pandasDBFileName)
+			dff = df.loc[df['Labels'] == label]
 
-	if ListOfLabels is 'all':
-		ListOfLabels = list(set(df['Labels'].tolist()))
-	
-	#establish connection to db
-	db = sql.connect(prediction_path+'predictions.db')
-	
+			if ListOfPredictionDays is not 'all':
+				dff = dff.loc[dff['PredictionDay'].isin(ListOfPredictionDays)]
+				
+			for n in dff.index.tolist():
 
-	for label in ListOfLabels:
+				if self.check_if_entry_exists(db,dff.loc[n]) is False:
+					self.add_entry(db,dff.loc[n])
 
-		dff = df.loc[df['Labels'] == label]
+				self.add_PrizeAtValidation_is_nan(db,dff.loc[n])
 
-		if ListOfPredictionDays is not 'all':
-			dff = dff.loc[dff['PredictionDay'].isin(ListOfPredictionDays)]
-			
-		for n in dff.index.tolist():
-
-			if check_if_entry_exists(db,dff.loc[n]) is False:
-				add_entry(db,dff.loc[n])
-
-			add_PrizeAtValidation_is_nan(db,dff.loc[n])
-
-	db.close()
+		db.close()
 
