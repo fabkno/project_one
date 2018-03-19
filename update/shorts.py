@@ -8,7 +8,7 @@ import util
 
 class ShortsUpdater(Log):
 	'''
-	This class is designed to update information of short positions bought by hedge fonds
+	This class is designed to update information of short positions acquired by hedge fonds
 
 
 	'''
@@ -83,7 +83,7 @@ class ShortsUpdater(Log):
 		Shorts = pd.read_csv(self.PathData+'shorts/'+filename)
 
 
-		#### web scraper from bundes anzeiger ####
+		#### web scraper for bundesanzeiger ####
 		url = 'https://www.bundesanzeiger.de/'
 
 		if util.URL_online(url) == False:
@@ -120,34 +120,18 @@ class ShortsUpdater(Log):
 								'Datum':date[i].get_text(),
 								'ISIN':comp_data[i*2+1].get_text(),
 								'Emittent':comp_data[i*2].get_text()[0:util.find_str(comp_data[i*2].get_text(),"Historie",return_ind="start")-2]},ignore_index=True)
-
-
+	
 		N_shorts = len(Shorts)
 		Shorts = pd.concat([tmp,Shorts],ignore_index=True)
 		Shorts.drop_duplicates(inplace=True)
 		Shorts.reset_index(drop=True,inplace=True)
 
-		Shorts.to_csv(self.PathData+'shorts/'+filename,index=False)
+		Shorts.to_csv(self.PathData+'shorts/'+filename,index=False,encoding='utf-8')
 		print len(Shorts) - N_shorts, " new short positions found"
 
 		if (len(Shorts) - N_shorts) > 20:
 			self.logging("More than 20 new entries found, download new list from bundesanzeiger.de")
 			print("more than 20 new entries found, download new list from bundesanzeiger.de")
-		#try:
-		#	idx_in_tmp = np.where(util.find_mask(tmp,Shorts.head(1).values[0],Shorts.columns) ==True)[0][0]
-			
-		#	if idx_in_tmp == 0:
-		#		self.logging("No new short positions found")
-		#		print "No new short positions found"
-		#	else:
-		#		Shorts = pd.concat([tmp[0:idx_in_tmp],Shorts],ignore_index=True)
-		#		Shorts.to_csv(self.PathData + 'shorts/'+filename,index=False)
-		#		self.logging(str(idx_in_tmp)+" new found short positions saved")
-		#		print idx_in_tmp,"new found short positions saved"
-
-			
-							
-
 
 
 
