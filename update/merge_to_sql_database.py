@@ -93,9 +93,12 @@ class MergeToSQL(Log):
 		-------------
 		tuple
 		'''
+		
 		if len(df.shape) >1:
 			raise ValueError('pandas data frame cannot have multiple rows, it must be a pandas sequence')
-		
+		if len(df.values[9]) != 12:
+			self.logging('Stock '+df.values[0]+': number of predicted probabilities is incorrect !!!')
+			print('Stock '+df.values[0]+': number of predicted probabilities is incorrect !!!')
 		return tuple(df.values[0:9]) \
 				+tuple(df.values[10:12])\
 				+tuple([np.round(df.values[9][i],decimals=3) for i in range(12)])+tuple(df.values[14:15])
@@ -103,17 +106,18 @@ class MergeToSQL(Log):
 
 
 	def check_if_entry_exists(self,db,data):
-	    #check if entry exists in database
-	    
-	    cursor = db.cursor()
-	    Label = data['Labels']
-	    PredictionDay = data['PredictionDay']   
-	        
-	    x = db.cursor().execute('''SELECT label,predictionday FROM prediction'''+str(self.duration)+'''BT WHERE label=? AND predictionday=?''',(Label,PredictionDay))
-	    
-	    if len(x.fetchall()) == 0:
+		#check if entry exists in database
+
+		cursor = db.cursor()
+		Label = data['Labels']
+		PredictionDay = data['PredictionDay']   
+		
+
+		x = db.cursor().execute('''SELECT label,predictionday FROM prediction'''+str(self.duration)+'''BT WHERE label=? AND predictionday=?''',(Label,PredictionDay))
+
+		if len(x.fetchall()) == 0:
 			return False
-	    else: return True
+		else: return True
 
 
 	def add_PrizeAtValidation_is_nan(self,db,data):
@@ -200,9 +204,9 @@ class MergeToSQL(Log):
 		
 
 		for label in ListOfLabels:
-
+			print label
 			dff = df.loc[df['Labels'] == label]
-
+#			print dff
 			if ListOfPredictionDays is not 'all':
 				dff = dff.loc[dff['PredictionDay'].isin(ListOfPredictionDays)]
 				
@@ -210,7 +214,7 @@ class MergeToSQL(Log):
 
 				if self.check_if_entry_exists(db,dff.loc[n]) is False:
 					self.add_entry(db,dff.loc[n])
-
+				
 				self.add_PrizeAtValidation_is_nan(db,dff.loc[n])
 
 		db.close()

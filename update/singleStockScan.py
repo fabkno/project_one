@@ -193,6 +193,7 @@ class ModelPrediction(Log):
 			ListOfFeatures = tmp['ListOfFeatures']		
 			modeltype = tmp['ModelType']
 
+			print "LastTrainingsDate in prediction:", tmp['LastTrainingsDate']
 			input_data = input_data.loc[input_data['Date'] <=DayOfPrediction].tail(10)
 			#input_data = input_data.loc[input_data['Date'] == DayOfPrediction]
 		
@@ -254,8 +255,9 @@ class ModelPrediction(Log):
 		self.ComputeStockModels(ListOfTickers,LastTrainingsDate=(DayOfPrediction-BDay(self.duration)).date())
 		predictions=self.PredictStocks(ListOfTickers,DayOfPrediction)
 				
-
-		self.writeToPandasDataBase(predictions)
+		print predictions
+		sys.exit()
+		#self.writeToPandasDataBase(predictions)
 
 		if double_save == True:
 			try: 
@@ -290,9 +292,11 @@ class ModelPrediction(Log):
 		LastTrainingsDate : datetime object (default is None), gives dates of last trainingsdate to use for modeling
 
 		'''
+		_LastTraingsDate = LastTrainingsDate
+
 
 		for stocklabel in ListOfTickers:
-		
+			LastTrainingsDate = _LastTraingsDate
 			params= self.read_modeling_parameters(stocklabel,duration=self.duration)
 			if params is None:
 			 	self.logging('No modeling parameters found stock: '+stocklabel)
@@ -317,7 +321,7 @@ class ModelPrediction(Log):
 						pickle.dump({'model':RFC_ob,'LastTrainingsDate':LastTrainingsDate,
 							'timestamp':dt.today().date(),'ModelType':ModelType,
 							'ListOfFeatures':Features,'ModelParameters':ModelingParameters},open(self.PathData + 'models/stocks/'+stocklabel+'_model.p','wb'))
-
+						print "LastTrainingsDate in compute model:", LastTrainingsDate
 					elif ModelType == 'SVM':
 						
 						_out = self.SingleSVM(input_data,classification_data,ModelingParameters,Features,FirstTrainingsDate=StartingDate,LastTrainingsDate=LastTrainingsDate)
@@ -543,16 +547,20 @@ class ModelPrediction(Log):
 		if LastTrainingsDate is None:
 			LastTrainingsDate = dt.today().date()
 
+		
 		#Prepare InputData and OutputData
 		InputData = InputData.loc[:,InputData.columns.isin(ListOfFeatures+['Date']) == True]
 		
+
 		_common_dates = util.find_common_notnull_dates(InputData,ClassificationData)
 	
 		InputData = InputData.loc[(InputData['Date'].isin(_common_dates)) & (InputData['Date'] > FirstTrainingsDate) & (InputData['Date'] <= LastTrainingsDate)]
+		
 		Input = InputData.loc[:,InputData.columns.isin(['Date']) == False].values
 	
 
 		ClassificationData = ClassificationData.loc[(ClassificationData['Date'].isin(_common_dates)) & (InputData['Date'] > FirstTrainingsDate) & (InputData['Date'] <= LastTrainingsDate)]
+
 		Output = np.argmax(ClassificationData.loc[:,ClassificationData.columns.isin(['Date']) == False].values,axis=1)
 
 		util.check_for_length_and_nan(Input,Output)
