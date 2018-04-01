@@ -129,9 +129,9 @@ class ShortsUpdater(Log):
 		Shorts.to_csv(self.PathData+'shorts/'+filename,index=False,encoding='utf-8')
 		print len(Shorts) - N_shorts, " new short positions found"
 
-		if (len(Shorts) - N_shorts) > 20:
-			self.logging("More than 20 new entries found, download new list from bundesanzeiger.de")
-			print("more than 20 new entries found, download new list from bundesanzeiger.de")
+		if (len(Shorts) - N_shorts) >=19:
+			self.logging("More than 19 new entries found, download new list from bundesanzeiger.de")
+			print("more than 19 new entries found, download new list from bundesanzeiger.de")
 
 
 
