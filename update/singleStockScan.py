@@ -106,9 +106,12 @@ class ModelPrediction(Log):
 
 				for _ind2 in index2:
 					#print prediction.loc[n,['PrizeAtPrediction','RelativePrizeChange','TrueCategory']].values
+
 					predictionsFull.loc[_ind2,'PrizeAtValidation'] = prediction.loc[n,'PrizeAtPrediction']
 					predictionsFull.loc[_ind2,'RelativePrizeChange'] = (predictionsFull.loc[_ind2,'PrizeAtValidation']- predictionsFull.loc[_ind2,'PrizeAtPrediction'])/predictionsFull.loc[_ind2,'PrizeAtPrediction'] * 100.
 					predictionsFull.loc[_ind2,'TrueCategory'] = util.find_category(predictionsFull.loc[_ind2,'RelativePrizeChange'])
+					print predictionsFull.loc[_ind2,:]
+
 					self.logging('Validation data for stock: '+str(prediction['Labels'][n]) + ' modified in database')
 
 			predictionsFull.reset_index(drop=True,inplace=True)
@@ -255,9 +258,9 @@ class ModelPrediction(Log):
 		self.ComputeStockModels(ListOfTickers,LastTrainingsDate=(DayOfPrediction-BDay(self.duration)).date())
 		predictions=self.PredictStocks(ListOfTickers,DayOfPrediction)
 				
-		print predictions
-		sys.exit()
-		#self.writeToPandasDataBase(predictions)
+		#print predictions
+		
+		self.writeToPandasDataBase(predictions)
 
 		if double_save == True:
 			try: 
