@@ -7,7 +7,7 @@ from pandas_datareader._utils import RemoteDataError
 import stockstats
 import chart_tools as ct
 from logger import Log
-from requests.exceptions import SSLError
+from requests.exceptions import SSLError, ConnectionError
 
 
 	# 		#find index with NAN
@@ -170,6 +170,10 @@ class StockUpdater(Log):
 
 				except SSLError:
 					self.logging("Stock "+stocklabel+":SSLError")
+					notUpdated.append(stocklabel)
+					continue
+				except ConnectionError:
+					self.logging("Stock "+stocklabel+": ConnectionError")
 					notUpdated.append(stocklabel)
 					continue
 			else:
