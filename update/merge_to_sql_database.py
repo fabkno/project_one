@@ -12,8 +12,6 @@ class MergeToSQL(Log):
 
 		Log.__init__(self,PathData=PathData)
 
-		self.duration = duration
-
 		if PathData is None:
 			self.PathData = os.path.dirname(os.getcwd())+'/data/'
 		else:
@@ -21,12 +19,8 @@ class MergeToSQL(Log):
 
 		self.PathPrediction = self.PathData+'/predictions/stocks/'
 
-		self.pandasDBFileName = self.PathPrediction + 'full_predictions_'+str(self.duration)+'BT.p'
-
-	
-		if os.path.isfile(self.pandasDBFileName) == False:
-			raise IOError('File in :'+self.pandasDBFileName+' does not exist')		
-
+		self.duration = duration
+		
 
 
 		#check if database exists other wise create empty db
@@ -105,7 +99,7 @@ class MergeToSQL(Log):
 
 
 
-	def check_if_entry_exists(self,db,data):
+	def check_if_entry_exists(self,db,data,duration):
 		#check if entry exists in database
 
 		cursor = db.cursor()
@@ -113,14 +107,35 @@ class MergeToSQL(Log):
 		PredictionDay = data['PredictionDay']   
 		
 
-		x = db.cursor().execute('''SELECT label,predictionday FROM prediction'''+str(self.duration)+'''BT WHERE label=? AND predictionday=?''',(Label,PredictionDay))
-
-		if len(x.fetchall()) == 0:
+		x1 = db.cursor().execute('''SELECT label,predictionday,prizeatvalidation FROM prediction'''+str(duration)+'''BT WHERE label=? AND predictionday=?''',(Label,PredictionDay))
+		
+		tmpx1 = x1.fetchall()
+		
+		#if entry does not exist return False
+		if len(tmpx1) == 0:				
 			return False
-		else: return True
+
+		else:
+			#if tmpx1[0][2] is None:
+			#	return "update"
+
+			#else:
+			return True
+			
+#		else:
+#
+#			x2 = db.cursor().execute('''SELECT label,predictionday,validationday,prizeatvalidation FROM prediction'''+str(duration)+'''BT WHERE label=? AND validationday=?''',(Label,PredictionDay))
+#			tmpx2= x2.fetchall()
+#			
+#			if tmpx2[0][3] is None:
+#				return "update"
+#			
+#			else: 
+#				return True
+			
 
 
-	def add_PrizeAtValidation_is_nan(self,db,data):
+	def add_PrizeAtValidation_is_nan(self,db,data,duration):
 		'''
 		check if db contains empty prizeatvalidation, relativeprizechange and truecategory for given predictionday in data
 
@@ -133,7 +148,7 @@ class MergeToSQL(Log):
 		ValidationDay = data['PredictionDay']
 		PrizeAtValidation = data['PrizeAtPrediction']
 
-		x = db.cursor().execute('''SELECT prizeatprediction,prizeatvalidation FROM prediction'''+str(self.duration)+'''BT WHERE label=? AND validationday =?''',(Label,ValidationDay))
+		x = db.cursor().execute('''SELECT prizeatprediction,prizeatvalidation FROM prediction'''+str(duration)+'''BT WHERE label=? AND validationday =?''',(Label,ValidationDay))
 
 		values = x.fetchone()
 
@@ -147,9 +162,9 @@ class MergeToSQL(Log):
 			db_RelativePrizeChange = np.round((db_PrizeAtValidation - db_PrizeAtPrediction)/db_PrizeAtPrediction *100.,decimals=3)
 			db_TrueCategory = util.find_category(db_RelativePrizeChange)
 
-			db.cursor().execute('''UPDATE prediction'''+str(self.duration)+'''BT SET prizeatvalidation=? WHERE label=? and validationday=?''',(db_PrizeAtValidation, Label,ValidationDay))
-			db.cursor().execute('''UPDATE prediction'''+str(self.duration)+'''BT SET relativeprizechange=? WHERE label=? and validationday=?''',(db_RelativePrizeChange, Label,ValidationDay))
-			db.cursor().execute('''UPDATE prediction'''+str(self.duration)+'''BT SET truecategory=? WHERE label=? and validationday=?''',(db_TrueCategory, Label,ValidationDay))
+			db.cursor().execute('''UPDATE prediction'''+str(duration)+'''BT SET prizeatvalidation=? WHERE label=? and validationday=?''',(db_PrizeAtValidation, Label,ValidationDay))
+			db.cursor().execute('''UPDATE prediction'''+str(duration)+'''BT SET relativeprizechange=? WHERE label=? and validationday=?''',(db_RelativePrizeChange, Label,ValidationDay))
+			db.cursor().execute('''UPDATE prediction'''+str(duration)+'''BT SET truecategory=? WHERE label=? and validationday=?''',(db_TrueCategory, Label,ValidationDay))
 
 			db.commit()
 
@@ -192,7 +207,14 @@ class MergeToSQL(Log):
 
 		db.commit()
 
-	def compare_databases(self,ListOfLabels='all',ListOfPredictionDays='all'):
+	def compare_databases(self,duration,ListOfLabels='all',ListOfPredictionDays='all'):
+
+		self.pandasDBFileName = self.PathPrediction + 'full_predictions_'+str(duration)+'BT.p'
+
+	
+		if os.path.isfile(self.pandasDBFileName) == False:
+			raise IOError('File in :'+self.pandasDBFileName+' does not exist')		
+
 
 		df = pd.read_pickle(self.pandasDBFileName)
 
@@ -212,10 +234,10 @@ class MergeToSQL(Log):
 				
 			for n in dff.index.tolist():
 
-				if self.check_if_entry_exists(db,dff.loc[n]) is False:
+				if self.check_if_entry_exists(db,dff.loc[n],duration) is False:
 					self.add_entry(db,dff.loc[n])
 				
-				self.add_PrizeAtValidation_is_nan(db,dff.loc[n])
+				self.add_PrizeAtValidation_is_nan(db,dff.loc[n],duration)
 
 		db.close()
 
