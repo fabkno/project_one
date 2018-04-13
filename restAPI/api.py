@@ -89,11 +89,32 @@ class Top_Predictions(Resource):
 		conn.close()
 		return jsonify({"%04d" % (i+1):{'Label':labels[mask][i],'Category':prob_arg_max[mask][i],'MaxProbability':prob_max[mask][i]} for i in range(len(mask))})
 
+class TopSort_Predictions(Resource):
+
+	def get(self,predictiondate):
+		PredictionDay = dt.strptime(predictiondate,'%Y-%m-%d').date()
+
+		conn = db_connect.connect()
+
+		query = conn.execute("select label,probcat0,probcat1,probcat2,probcat3,probcat4,probcat5,probcat6,probcat7,probcat8,probcat9,probcat10,probcat11 from prediction3BT where predictionday = ?",(PredictionDay,))
+		
+		tmp = query.cursor.fetchall()
+		labels= np.array([_tmp[0] for _tmp in tmp])
+		probs = np.array([_tmp[1:] for _tmp in tmp])
+		prob_arg_max = np.argmax(probs,axis=1)
+		prob_max =np.max(probs,axis=1)
+		mask = np.lexsort((prob_max,prob_arg_max))[::-1]
+
+		conn.close()
+		return jsonify({"%04d" % (i+1):{'Label':labels[mask][i],'Category':prob_arg_max[mask][i],'MaxProbability':prob_max[mask][i]} for i in range(len(mask))})
+
 api.add_resource(StockInfo,'/stocks')
 api.add_resource(Stock_Prediction_Day,'/stocks/<string:stock_label>/<string:predictiondate>')
 api.add_resource(Stock_Prediction_Day_All,'/stocks/<string:stock_label>/predictions')
 api.add_resource(Single_Stock_Info,'/stocks/<string:stock_label>')
 api.add_resource(Top_Predictions,'/top/<string:predictiondate>')
+api.add_resource(TopSort_Predictions,'/top_sort/<string:predictiondate>')
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0')
+	#app.run(debug=True)
+	app.run(host='0.0.0.0')
