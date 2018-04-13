@@ -112,87 +112,86 @@
 110,Symrise,http://www.finanzen.net/aktien/symrise-Aktie,DE000SYM9999,SYM999,SY1,Deutschland,SY1.DE,True
 111,TAG Immobilien,http://www.finanzen.net/aktien/tag_immobilien-Aktie,DE0008303504,830350,TEG,Deutschland,TEG.DE,True
 112,Talanx,http://www.finanzen.net/aktien/talanx-Aktie,DE000TLX1005,TLX100,,Deutschland,TLX.DE,True
-113,Uniper,http://www.finanzen.net/aktien/uniper-Aktie,DE000UNSE018,UNSE01,,Deutschland,UN01.DE,True
-114,WACKER CHEMIE,http://www.finanzen.net/aktien/wacker_chemie-Aktie,DE000WCH8881,WCH888,WCH,Deutschland,WCH.DE,True
-115,Zalando,http://www.finanzen.net/aktien/zalando-Aktie,DE000ZAL1111,ZAL111,,Deutschland,ZAL.DE,True
-116,Adler Real Estate,http://www.finanzen.net/aktien/Adler_Real_Estate-Aktie,DE0005008007,500800,,Deutschland,ADL.F,True
-117,ADO Properties,http://www.finanzen.net/aktien/ADO_Properties-Aktie,LU1250154413,A14U78,,Deutschland,ADJ.F,True
-118,Aroundtown SA,http://www.finanzen.net/aktien/Aroundtown-Aktie,LU1673108939,A2DW8Z,,Luxemburg,AT1.F,True
-119,Bertrandt,http://www.finanzen.net/aktien/Bertrandt-Aktie,DE0005232805,523280,BDT,Deutschland,BDT.DE,True
-120,bet-at-home.com,http://www.finanzen.net/aktien/bet-at-homecom-Aktie,DE000A0DNAY5,A0DNAY,,Deutschland,ACX.F,True
-121,Bilfinger,http://www.finanzen.net/aktien/bilfinger-Aktie,DE0005909006,590900,GBF,Deutschland,GBF.DE,True
-122,Biotest vz.,http://www.finanzen.net/aktien/Biotest-Aktie,DE0005227235,522723,BIO3,Deutschland,BIO3.DE,True
-123,BVB (Borussia Dortmund),http://www.finanzen.net/aktien/BVB-Aktie,DE0005493092,549309,BVB,Deutschland,BVB.DE,True
-124,Encavis AG,http://www.finanzen.net/aktien/ENCAVIS-Aktie,DE0006095003,609500,CAP.FRA,Deutschland,CAP.DE,True
-125,CEWE Stiftung,http://www.finanzen.net/aktien/CEWE_Stiftung-Aktie,DE0005403901,540390,CWC,Deutschland,CWC.DE,True
-126,Delivery Hero,http://www.finanzen.net/aktien/Delivery_Hero-Aktie,DE000A2E4K43,A2E4K4,,Deutschland,DHER.DE,True
-127,Deutsche Beteiligungs,http://www.finanzen.net/aktien/Deutsche_Beteiligungs-Aktie,DE000A1TNUT7,A1TNUT,,Deutschland,DBAN.DE,True
-128,DEUTZ,http://www.finanzen.net/aktien/DEUTZ-Aktie,DE0006305006,630500,DEZ,Deutschland,DEZ.DE,True
-129,DIC Asset,http://www.finanzen.net/aktien/DIC_Asset-Aktie,DE000A1X3XX4,A1X3XX,DAZ,Deutschland,DIC.DE,True
-130,Diebold Nixdorf,http://www.finanzen.net/aktien/Diebold_Nixdorf-Aktie,DE000A0CAYB2,A0CAYB,WIN,Deutschland,WIN.DE,True
-131,DMG MORI,http://www.finanzen.net/aktien/DMG_MORI-Aktie,DE0005878003,587800,GIL,Deutschland,GIL.DE,True
-132,ElringKlinger,http://www.finanzen.net/aktien/ElringKlinger-Aktie,DE0007856023,785602,ZIL2,Deutschland,ZIL2.F,True
-133,GERRY WEBER,http://www.finanzen.net/aktien/GERRY_WEBER-Aktie,DE0003304101,330410,GWI1,Deutschland,GWI1.DE,True
-134,Grammer,http://www.finanzen.net/aktien/Grammer-Aktie,DE0005895403,589540,GMM,Deutschland,GMM.DE,True
-135,GRENKE,http://www.finanzen.net/aktien/GRENKE-Aktie,DE000A161N30,A161N3,,Deutschland,GLJ.DE,True
-136,HAMBORNER REIT,http://www.finanzen.net/aktien/HAMBORNER_REIT-Aktie,DE0006013006,601300,HAB,Deutschland,HAB.F,True
-137,Hapag-Lloyd,http://www.finanzen.net/aktien/Hapag-Lloyd-Aktie,DE000HLAG475,HLAG47,,Deutschland,HLAG.DE,True
-138,Heidelberger Druckmaschinen,http://www.finanzen.net/aktien/Heidelberger_Druckmaschinen-Aktie,DE0007314007,731400,HDD,Deutschland,HDD.DE,True
-139,HHLA,http://www.finanzen.net/aktien/HHLA-Aktie,DE000A0S8488,A0S848,HHFA,Deutschland,HHFA.DE,True
-140,Hornbach,http://www.finanzen.net/aktien/Hornbach-Aktie,DE0006083405,608340,,Deutschland,HBH.F,True
-141,Hypoport,http://www.finanzen.net/aktien/Hypoport-Aktie,DE0005493365,549336,,Deutschland,HYQ.DE,True
-142,INDUS,http://www.finanzen.net/aktien/INDUS-Aktie,DE0006200108,620010,INH,Deutschland,INH.DE,True
-143,Klöckner,http://www.finanzen.net/aktien/Kloeckner_Co-Aktie,DE000KC01000,KC0100,KCO,Deutschland,KCO.DE,True
-144,Koenig Bauer,http://www.finanzen.net/aktien/KoenigBauer-Aktie,DE0007193500,719350,SKB,Deutschland,SKB.DE,True
-145,KWS SAAT,http://www.finanzen.net/aktien/KWS_SAAT-Aktie,DE0007074007,707400,KWS,Deutschland,KWS.DE,True
-146,MLP,http://www.finanzen.net/aktien/MLP-Aktie,DE0006569908,656990,MLP,Deutschland,MLP.DE,True
-147,PATRIZIA Immobilien,http://www.finanzen.net/aktien/PATRIZIA_Immobilien-Aktie,DE000PAT1AG3,PAT1AG,,Deutschland,P1Z.DE,True
-148,PUMA,http://www.finanzen.net/aktien/PUMA-Aktie,DE0006969603,696960,PUM,Deutschland,PUM.DE,True
-149,RATIONAL,http://www.finanzen.net/aktien/rational-Aktie,DE0007010803,701080,RAA,Deutschland,RAA.DE,True
-150,RHÖN-KLINIKUM,http://www.finanzen.net/aktien/RHOEN-KLINIKUM-Aktie,DE0007042301,704230,RHK,Deutschland,RHK.DE,True
-151,Rocket Internet,http://www.finanzen.net/aktien/Rocket_Internet-Aktie,DE000A12UKK6,A12UKK,RKET,Deutschland,RKET.DE,True
-152,SAF-Holland SA,http://www.finanzen.net/aktien/SAF-Holland-Aktie,LU0307018795,A0MU70,SFQ,Luxemburg,SFQ.DE,True
-153,Scout24,http://www.finanzen.net/aktien/Scout24-Aktie,DE000A12DM80,A12DM8,,Deutschland,G24.DE,True
-154,SGL Carbon,http://www.finanzen.net/aktien/SGL_Carbon-Aktie,DE0007235301,723530,SGL,Deutschland,SGL.DE,True
-155,Sixt,http://www.finanzen.net/aktien/Sixt-Aktie,DE0007231326,723132,SIX2,Deutschland,SIX2.DE,True
-156,Stabilus,http://www.finanzen.net/aktien/Stabilus-Aktie,LU1066226637,A113Q5,,Luxemburg,STM.F,True
-157,TAKKT,http://www.finanzen.net/aktien/TAKKT-Aktie,DE0007446007,744600,TTK,Deutschland,TTK.DE,True
-158,Tele Columbus,http://www.finanzen.net/aktien/Tele_Columbus-Aktie,DE000TCAG172,TCAG17,,Deutschland,TC1.DE,True
-159,TLG IMMOBILIEN,http://www.finanzen.net/aktien/TLG_IMMOBILIEN-Aktie,DE000A12B8Z4,A12B8Z,,Deutschland,TLG.DE,True
-160,Vossloh,http://www.finanzen.net/aktien/Vossloh-Aktie,DE0007667107,766710,VOS,Deutschland,VOS.DE,True
-161,VTG,http://www.finanzen.net/aktien/VTG-Aktie,DE000VTG9999,VTG999,VT9,Deutschland,VT9.DE,True
-162,Wacker Neuson,http://www.finanzen.net/aktien/Wacker-Aktie,DE000WACK012,WACK01,WAC,Deutschland,WAC.DE,True
-163,WashTec,http://www.finanzen.net/aktien/WashTec-Aktie,DE0007507501,750750,WSU,Deutschland,WSU.DE,True
-164,Wüstenrot Württembergische,http://www.finanzen.net/aktien/Wuestenrot-Aktie,DE0008051004,805100,WUW,Deutschland,WUW.DE,True
-165,zooplus,http://www.finanzen.net/aktien/zooplus-Aktie,DE0005111702,511170,,Deutschland,ZO1.DE,True
-166,1&1 Drillisch,http://www.finanzen.net/aktien/Drillisch-Aktie,DE0005545503,554550,DRI,Deutschland,DRI.DE,True
-167,ADVA,http://www.finanzen.net/aktien/ADVA-Aktie,DE0005103006,510300,ADV,Deutschland,ADV.DE,True
-168,AIXTRON,http://www.finanzen.net/aktien/AIXTRON-Aktie,DE000A0WMPJ6,A0WMPJ,AIX,Deutschland,AIXA.DE,True
-169,Bechtle,http://www.finanzen.net/aktien/Bechtle-Aktie,DE0005158703,515870,BC8,Deutschland,BC8.DE,True
-170,CANCOM,http://www.finanzen.net/aktien/CANCOM-Aktie,DE0005419105,541910,COK,Deutschland,COK.DE,True
-171,Carl Zeiss Meditec,http://www.finanzen.net/aktien/Carl_Zeiss_Meditec-Aktie,DE0005313704,531370,AFX,Deutschland,AFX.DE,True
-172,CompuGroup Medical,http://www.finanzen.net/aktien/CompuGroup_Medical-Aktie,DE0005437305,543730,COP,Deutschland,COP.DE,True
-173,Dialog Semiconductor,http://www.finanzen.net/aktien/Dialog_Semiconductor-Aktie,GB0059822006,927200,DLG,Großbritannien,DLG.DE,True
-174,Drägerwerk,http://www.finanzen.net/aktien/Draegerwerk-Aktie,DE0005550636,555063,DRW3,Deutschland,DRW3.DE,True
-175,EVOTEC,http://www.finanzen.net/aktien/EVOTEC-Aktie,DE0005664809,566480,EVT,Deutschland,EVT.DE,True
-176,freenet,http://www.finanzen.net/aktien/freenet-Aktie,DE000A0Z2ZZ5,A0Z2ZZ,FRN,Deutschland,FNTN.DE,True
-177,GFT,http://www.finanzen.net/aktien/GFT-Aktie,DE0005800601,580060,GFT,Deutschland,GFT.DE,True
-178,JENOPTIK,http://www.finanzen.net/aktien/JENOPTIK-Aktie,DE0006229107,622910,JEN,Deutschland,JEN.DE,True
-179,Medigene,http://www.finanzen.net/aktien/Medigene-Aktie,DE000A1X3W00,A1X3W0,MDG,Deutschland,MDG1.DE,True
-180,MorphoSys,http://www.finanzen.net/aktien/MorphoSys-Aktie,DE0006632003,663200,MOR,Deutschland,MOR.DE,True
-181,Nemetschek,http://www.finanzen.net/aktien/Nemetschek-Aktie,DE0006452907,645290,NEM,Deutschland,NEM.DE,True
-182,Nordex,http://www.finanzen.net/aktien/Nordex-Aktie,DE000A0D6554,A0D655,NDX1,Deutschland,NDX1.DE,True
-183,Pfeiffer Vacuum,http://www.finanzen.net/aktien/Pfeiffer_Vacuum-Aktie,DE0006916604,691660,PFV,Deutschland,PFV.DE,True
-184,QIAGEN,http://www.finanzen.net/aktien/QIAGEN-Aktie,NL0012169213,A2DKCH,QGEN,Niederlande,QIA.DE,True
-185,RIB Software,http://www.finanzen.net/aktien/RIB_Software-Aktie,DE000A0Z2XN6,A0Z2XN,,Deutschland,RIB.DE,True
-186,S&T;,http://www.finanzen.net/aktien/ST-Aktie,AT0000A0E9W5,A0X9EJ,,Österreich,SANT.DE,True
-187,Sartorius vz.,http://www.finanzen.net/aktien/Sartorius_vz-Aktie,DE0007165631,716563,SRT3,Deutschland,SRT3.DE,True
-188,Siltronic,http://www.finanzen.net/aktien/Siltronic-Aktie,DE000WAF3001,WAF300,WAF,Deutschland,WAF.DE,True
-189,SLM Solutions,http://www.finanzen.net/aktien/SLM_Solutions-Aktie,DE000A111338,A11133,,Deutschland,AM3D.DE,True
-190,SMA Solar,http://www.finanzen.net/aktien/SMA_Solar-Aktie,DE000A0DJ6J9,A0DJ6J,S92,Deutschland,S92.F,True
-191,Software,http://www.finanzen.net/aktien/Software-Aktie,DE000A2GS401,A2GS40,SOW,Deutschland,SOW.DE,True
-192,Telefónica Deutschland,http://www.finanzen.net/aktien/Telefonica_Deutschland-Aktie,DE000A1J5RX9,A1J5RX,,Deutschland,O2D.DE,True
-193,United Internet,http://www.finanzen.net/aktien/United_Internet-Aktie,DE0005089031,508903,UTDI,Deutschland,UTDI.DE,True
-194,Wirecard,http://www.finanzen.net/aktien/Wirecard-Aktie,DE0007472060,747206,IGP,Deutschland,WDI.F,True
-195,XING,http://www.finanzen.net/aktien/XING-Aktie,DE000XNG8888,XNG888,,Deutschland,O1BC.DE,True
-196,ISRA VISION Aktie, https://www.finanzen.net/aktien/ISRA_VISION-Aktie,DE0005488100,548810,ISR, Deutschland,ISR.DE,True
+113,WACKER CHEMIE,http://www.finanzen.net/aktien/wacker_chemie-Aktie,DE000WCH8881,WCH888,WCH,Deutschland,WCH.DE,True
+114,Zalando,http://www.finanzen.net/aktien/zalando-Aktie,DE000ZAL1111,ZAL111,,Deutschland,ZAL.DE,True
+115,Adler Real Estate,http://www.finanzen.net/aktien/Adler_Real_Estate-Aktie,DE0005008007,500800,,Deutschland,ADL.F,True
+116,ADO Properties,http://www.finanzen.net/aktien/ADO_Properties-Aktie,LU1250154413,A14U78,,Deutschland,ADJ.F,True
+117,Aroundtown SA,http://www.finanzen.net/aktien/Aroundtown-Aktie,LU1673108939,A2DW8Z,,Luxemburg,AT1.F,True
+118,Bertrandt,http://www.finanzen.net/aktien/Bertrandt-Aktie,DE0005232805,523280,BDT,Deutschland,BDT.DE,True
+119,bet-at-home.com,http://www.finanzen.net/aktien/bet-at-homecom-Aktie,DE000A0DNAY5,A0DNAY,,Deutschland,ACX.F,True
+120,Bilfinger,http://www.finanzen.net/aktien/bilfinger-Aktie,DE0005909006,590900,GBF,Deutschland,GBF.DE,True
+121,Biotest vz.,http://www.finanzen.net/aktien/Biotest-Aktie,DE0005227235,522723,BIO3,Deutschland,BIO3.DE,True
+122,BVB (Borussia Dortmund),http://www.finanzen.net/aktien/BVB-Aktie,DE0005493092,549309,BVB,Deutschland,BVB.DE,True
+123,Encavis AG,http://www.finanzen.net/aktien/ENCAVIS-Aktie,DE0006095003,609500,CAP.FRA,Deutschland,CAP.DE,True
+124,CEWE Stiftung,http://www.finanzen.net/aktien/CEWE_Stiftung-Aktie,DE0005403901,540390,CWC,Deutschland,CWC.DE,True
+125,Delivery Hero,http://www.finanzen.net/aktien/Delivery_Hero-Aktie,DE000A2E4K43,A2E4K4,,Deutschland,DHER.DE,True
+126,Deutsche Beteiligungs,http://www.finanzen.net/aktien/Deutsche_Beteiligungs-Aktie,DE000A1TNUT7,A1TNUT,,Deutschland,DBAN.DE,True
+127,DEUTZ,http://www.finanzen.net/aktien/DEUTZ-Aktie,DE0006305006,630500,DEZ,Deutschland,DEZ.DE,True
+128,DIC Asset,http://www.finanzen.net/aktien/DIC_Asset-Aktie,DE000A1X3XX4,A1X3XX,DAZ,Deutschland,DIC.DE,True
+129,Diebold Nixdorf,http://www.finanzen.net/aktien/Diebold_Nixdorf-Aktie,DE000A0CAYB2,A0CAYB,WIN,Deutschland,WIN.DE,True
+130,DMG MORI,http://www.finanzen.net/aktien/DMG_MORI-Aktie,DE0005878003,587800,GIL,Deutschland,GIL.DE,True
+131,ElringKlinger,http://www.finanzen.net/aktien/ElringKlinger-Aktie,DE0007856023,785602,ZIL2,Deutschland,ZIL2.F,True
+132,GERRY WEBER,http://www.finanzen.net/aktien/GERRY_WEBER-Aktie,DE0003304101,330410,GWI1,Deutschland,GWI1.DE,True
+133,Grammer,http://www.finanzen.net/aktien/Grammer-Aktie,DE0005895403,589540,GMM,Deutschland,GMM.DE,True
+134,GRENKE,http://www.finanzen.net/aktien/GRENKE-Aktie,DE000A161N30,A161N3,,Deutschland,GLJ.DE,True
+135,HAMBORNER REIT,http://www.finanzen.net/aktien/HAMBORNER_REIT-Aktie,DE0006013006,601300,HAB,Deutschland,HAB.F,True
+136,Hapag-Lloyd,http://www.finanzen.net/aktien/Hapag-Lloyd-Aktie,DE000HLAG475,HLAG47,,Deutschland,HLAG.DE,True
+137,Heidelberger Druckmaschinen,http://www.finanzen.net/aktien/Heidelberger_Druckmaschinen-Aktie,DE0007314007,731400,HDD,Deutschland,HDD.DE,True
+138,HHLA,http://www.finanzen.net/aktien/HHLA-Aktie,DE000A0S8488,A0S848,HHFA,Deutschland,HHFA.DE,True
+139,Hornbach,http://www.finanzen.net/aktien/Hornbach-Aktie,DE0006083405,608340,,Deutschland,HBH.F,True
+140,Hypoport,http://www.finanzen.net/aktien/Hypoport-Aktie,DE0005493365,549336,,Deutschland,HYQ.DE,True
+141,INDUS,http://www.finanzen.net/aktien/INDUS-Aktie,DE0006200108,620010,INH,Deutschland,INH.DE,True
+142,Klöckner,http://www.finanzen.net/aktien/Kloeckner_Co-Aktie,DE000KC01000,KC0100,KCO,Deutschland,KCO.DE,True
+143,Koenig Bauer,http://www.finanzen.net/aktien/KoenigBauer-Aktie,DE0007193500,719350,SKB,Deutschland,SKB.DE,True
+144,KWS SAAT,http://www.finanzen.net/aktien/KWS_SAAT-Aktie,DE0007074007,707400,KWS,Deutschland,KWS.DE,True
+145,MLP,http://www.finanzen.net/aktien/MLP-Aktie,DE0006569908,656990,MLP,Deutschland,MLP.DE,True
+146,PATRIZIA Immobilien,http://www.finanzen.net/aktien/PATRIZIA_Immobilien-Aktie,DE000PAT1AG3,PAT1AG,,Deutschland,P1Z.DE,True
+147,PUMA,http://www.finanzen.net/aktien/PUMA-Aktie,DE0006969603,696960,PUM,Deutschland,PUM.DE,True
+148,RATIONAL,http://www.finanzen.net/aktien/rational-Aktie,DE0007010803,701080,RAA,Deutschland,RAA.DE,True
+149,RHÖN-KLINIKUM,http://www.finanzen.net/aktien/RHOEN-KLINIKUM-Aktie,DE0007042301,704230,RHK,Deutschland,RHK.DE,True
+150,Rocket Internet,http://www.finanzen.net/aktien/Rocket_Internet-Aktie,DE000A12UKK6,A12UKK,RKET,Deutschland,RKET.DE,True
+151,SAF-Holland SA,http://www.finanzen.net/aktien/SAF-Holland-Aktie,LU0307018795,A0MU70,SFQ,Luxemburg,SFQ.DE,True
+152,Scout24,http://www.finanzen.net/aktien/Scout24-Aktie,DE000A12DM80,A12DM8,,Deutschland,G24.DE,True
+153,SGL Carbon,http://www.finanzen.net/aktien/SGL_Carbon-Aktie,DE0007235301,723530,SGL,Deutschland,SGL.DE,True
+154,Sixt,http://www.finanzen.net/aktien/Sixt-Aktie,DE0007231326,723132,SIX2,Deutschland,SIX2.DE,True
+155,Stabilus,http://www.finanzen.net/aktien/Stabilus-Aktie,LU1066226637,A113Q5,,Luxemburg,STM.F,True
+156,TAKKT,http://www.finanzen.net/aktien/TAKKT-Aktie,DE0007446007,744600,TTK,Deutschland,TTK.DE,True
+157,Tele Columbus,http://www.finanzen.net/aktien/Tele_Columbus-Aktie,DE000TCAG172,TCAG17,,Deutschland,TC1.DE,True
+158,TLG IMMOBILIEN,http://www.finanzen.net/aktien/TLG_IMMOBILIEN-Aktie,DE000A12B8Z4,A12B8Z,,Deutschland,TLG.DE,True
+159,Vossloh,http://www.finanzen.net/aktien/Vossloh-Aktie,DE0007667107,766710,VOS,Deutschland,VOS.DE,True
+160,VTG,http://www.finanzen.net/aktien/VTG-Aktie,DE000VTG9999,VTG999,VT9,Deutschland,VT9.DE,True
+161,Wacker Neuson,http://www.finanzen.net/aktien/Wacker-Aktie,DE000WACK012,WACK01,WAC,Deutschland,WAC.DE,True
+162,WashTec,http://www.finanzen.net/aktien/WashTec-Aktie,DE0007507501,750750,WSU,Deutschland,WSU.DE,True
+163,Wüstenrot Württembergische,http://www.finanzen.net/aktien/Wuestenrot-Aktie,DE0008051004,805100,WUW,Deutschland,WUW.DE,True
+164,zooplus,http://www.finanzen.net/aktien/zooplus-Aktie,DE0005111702,511170,,Deutschland,ZO1.DE,True
+165,1&1 Drillisch,http://www.finanzen.net/aktien/Drillisch-Aktie,DE0005545503,554550,DRI,Deutschland,DRI.DE,True
+166,ADVA,http://www.finanzen.net/aktien/ADVA-Aktie,DE0005103006,510300,ADV,Deutschland,ADV.DE,True
+167,AIXTRON,http://www.finanzen.net/aktien/AIXTRON-Aktie,DE000A0WMPJ6,A0WMPJ,AIX,Deutschland,AIXA.DE,True
+168,Bechtle,http://www.finanzen.net/aktien/Bechtle-Aktie,DE0005158703,515870,BC8,Deutschland,BC8.DE,True
+169,CANCOM,http://www.finanzen.net/aktien/CANCOM-Aktie,DE0005419105,541910,COK,Deutschland,COK.DE,True
+170,Carl Zeiss Meditec,http://www.finanzen.net/aktien/Carl_Zeiss_Meditec-Aktie,DE0005313704,531370,AFX,Deutschland,AFX.DE,True
+171,CompuGroup Medical,http://www.finanzen.net/aktien/CompuGroup_Medical-Aktie,DE0005437305,543730,COP,Deutschland,COP.DE,True
+172,Dialog Semiconductor,http://www.finanzen.net/aktien/Dialog_Semiconductor-Aktie,GB0059822006,927200,DLG,Großbritannien,DLG.DE,True
+173,Drägerwerk,http://www.finanzen.net/aktien/Draegerwerk-Aktie,DE0005550636,555063,DRW3,Deutschland,DRW3.DE,True
+174,EVOTEC,http://www.finanzen.net/aktien/EVOTEC-Aktie,DE0005664809,566480,EVT,Deutschland,EVT.DE,True
+175,freenet,http://www.finanzen.net/aktien/freenet-Aktie,DE000A0Z2ZZ5,A0Z2ZZ,FRN,Deutschland,FNTN.DE,True
+176,GFT,http://www.finanzen.net/aktien/GFT-Aktie,DE0005800601,580060,GFT,Deutschland,GFT.DE,True
+177,JENOPTIK,http://www.finanzen.net/aktien/JENOPTIK-Aktie,DE0006229107,622910,JEN,Deutschland,JEN.DE,True
+178,Medigene,http://www.finanzen.net/aktien/Medigene-Aktie,DE000A1X3W00,A1X3W0,MDG,Deutschland,MDG1.DE,True
+179,MorphoSys,http://www.finanzen.net/aktien/MorphoSys-Aktie,DE0006632003,663200,MOR,Deutschland,MOR.DE,True
+180,Nemetschek,http://www.finanzen.net/aktien/Nemetschek-Aktie,DE0006452907,645290,NEM,Deutschland,NEM.DE,True
+181,Nordex,http://www.finanzen.net/aktien/Nordex-Aktie,DE000A0D6554,A0D655,NDX1,Deutschland,NDX1.DE,True
+182,Pfeiffer Vacuum,http://www.finanzen.net/aktien/Pfeiffer_Vacuum-Aktie,DE0006916604,691660,PFV,Deutschland,PFV.DE,True
+183,QIAGEN,http://www.finanzen.net/aktien/QIAGEN-Aktie,NL0012169213,A2DKCH,QGEN,Niederlande,QIA.DE,True
+184,RIB Software,http://www.finanzen.net/aktien/RIB_Software-Aktie,DE000A0Z2XN6,A0Z2XN,,Deutschland,RIB.DE,True
+185,S&T;,http://www.finanzen.net/aktien/ST-Aktie,AT0000A0E9W5,A0X9EJ,,Österreich,SANT.DE,True
+186,Sartorius vz.,http://www.finanzen.net/aktien/Sartorius_vz-Aktie,DE0007165631,716563,SRT3,Deutschland,SRT3.DE,True
+187,Siltronic,http://www.finanzen.net/aktien/Siltronic-Aktie,DE000WAF3001,WAF300,WAF,Deutschland,WAF.DE,True
+188,SLM Solutions,http://www.finanzen.net/aktien/SLM_Solutions-Aktie,DE000A111338,A11133,,Deutschland,AM3D.DE,True
+189,SMA Solar,http://www.finanzen.net/aktien/SMA_Solar-Aktie,DE000A0DJ6J9,A0DJ6J,S92,Deutschland,S92.F,True
+190,Software,http://www.finanzen.net/aktien/Software-Aktie,DE000A2GS401,A2GS40,SOW,Deutschland,SOW.DE,True
+191,Telefónica Deutschland,http://www.finanzen.net/aktien/Telefonica_Deutschland-Aktie,DE000A1J5RX9,A1J5RX,,Deutschland,O2D.DE,True
+192,United Internet,http://www.finanzen.net/aktien/United_Internet-Aktie,DE0005089031,508903,UTDI,Deutschland,UTDI.DE,True
+193,Wirecard,http://www.finanzen.net/aktien/Wirecard-Aktie,DE0007472060,747206,IGP,Deutschland,WDI.F,True
+194,XING,http://www.finanzen.net/aktien/XING-Aktie,DE000XNG8888,XNG888,,Deutschland,O1BC.DE,True
+195,ISRA VISION Aktie, https://www.finanzen.net/aktien/ISRA_VISION-Aktie,DE0005488100,548810,ISR, Deutschland,ISR.DE,True
