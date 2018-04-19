@@ -172,8 +172,13 @@ class StockUpdater(Log):
 					self.logging("Stock "+stocklabel+":SSLError")
 					notUpdated.append(stocklabel)
 					continue
+
 				except ConnectionError:
 					self.logging("Stock "+stocklabel+": ConnectionError")
+					notUpdated.append(stocklabel)
+					continue
+				except IndexError:
+					self.logging("Stock "+stocklabel+": IndexError")
 					notUpdated.append(stocklabel)
 					continue
 			else:
