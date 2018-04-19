@@ -717,7 +717,7 @@ class ScanModel(Log):
 		
 		if self.ModelType == 'RFC':
 			if GridParameters is None:		
-				self.ParamGrid = {'max_depth':[10,20,30,50,75,100,150,200,250,300],'max_features':['auto','log2']}
+				self.ParamGrid = {'max_depth':[10,20,30,50,75,100,150,200],'max_features':['auto'],'min_samples_leaf':[1,2,4],'min_samples_split': [2, 5, 10]}
 			else:
 				self.ParamGrid = GridParameters
 
