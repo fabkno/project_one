@@ -378,8 +378,9 @@ class ModelPrediction(Log):
 		params= self.read_modeling_parameters(Ticker,duration=self.duration,ModelType=ModelType)
 		if params is None:
 			self.logging("ValueError: Stock "+Ticker+": parameter values not found in prediction data base")
-			raise ValueError("Parameter values for stock",Ticker,"not found in prediction data base")
-			
+			#raise ValueError("Parameter values for stock",Ticker,"not found in prediction data base")
+			print("ValueError: Stock "+Ticker+": parameter values not found in prediction data base")
+			return 
 		else:
 
 			ModelType,ModelingParameters,ListOfFeatures,StartingDateTraining = params
@@ -471,7 +472,7 @@ class ModelPrediction(Log):
 		
 		self.writeToPandasDataBase(Validations)
 
-		Validations.to_pickle(self.PathData + 'simulations/stocks/'+Ticker+'_prediction.p')
+		#Validations.to_pickle(self.PathData + 'simulations/stocks/'+Ticker+'_prediction.p')
 
 
 		self.logging("Stock: "+Ticker+" simlation finished from "+str(StartingDateSimulation) + " until "+str(_starting_dates_simulations[-1].date())+ " with modeltype: "+ModelType)
@@ -717,7 +718,7 @@ class ScanModel(Log):
 		
 		if self.ModelType == 'RFC':
 			if GridParameters is None:		
-				self.ParamGrid = {'max_depth':[10,20,30,50,75,100,150,200],'max_features':['auto'],'min_samples_leaf':[1,2,4],'min_samples_split': [2, 5, 10]}
+				self.ParamGrid = {'max_depth':[10,20,30,50,75,100,150,200],'max_features':['auto'],'min_samples_leaf':[1,2,4,10,15,20],'min_samples_split': [2, 5,7,10,20]}
 			else:
 				self.ParamGrid = GridParameters
 
